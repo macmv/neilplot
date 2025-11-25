@@ -16,6 +16,7 @@ pub(crate) struct Render {
   font:   parley::FontContext,
   layout: parley::LayoutContext<Brush>,
 
+  transform:  Affine,
   background: Color,
 }
 
@@ -71,10 +72,15 @@ impl Plot<'_> {
   pub fn save(&self, path: impl AsRef<Path>) { self.render(Target::Image(path.as_ref())); }
 
   fn render(&self, target: Target<'_>) {
-    let config = RenderConfig { width: 1024, height: 1024 };
+    let config = RenderConfig { width: 2048, height: 2048 };
     let handle = GpuHandle::new(&config);
 
     let mut render = Render::new();
+    // Everything uses a 1000x1000 coordinate system.
+    render.transform = Affine::scale_non_uniform(
+      f64::from(config.width) / 1000.0,
+      f64::from(config.height) / 1000.0,
+    );
     self.draw(&mut render);
 
     let view = &handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -107,14 +113,13 @@ impl Render {
       scene:      vello::Scene::new(),
       font:       parley::FontContext::new(),
       layout:     parley::LayoutContext::new(),
+      transform:  Affine::IDENTITY,
       background: Color::WHITE,
     }
   }
 
   pub fn draw_line(&mut self, start: Point, end: Point, brush: Brush, width: f64) {
-    let transform = Affine::scale(1.024);
-
-    self.scene.stroke(&Stroke::new(width), transform, &brush, None, &Line::new(start, end));
+    self.scene.stroke(&Stroke::new(width), self.transform, &brush, None, &Line::new(start, end));
   }
 
   pub fn draw_text(&mut self, text: DrawText<'_>) {
@@ -160,7 +165,7 @@ impl Render {
           .draw_glyphs(run.font())
           .brush(&glyph_run.style().brush)
           .hint(true)
-          .transform(text.transform.then_translate(text.position.to_vec2()))
+          .transform(self.transform * text.transform.then_translate(text.position.to_vec2()))
           .glyph_transform(
             run.synthesis().skew().map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0)),
           )
