@@ -1,6 +1,7 @@
 use polars::prelude::Column;
+use vello::kurbo::{Affine, Point, Vec2};
 
-use crate::render::Render;
+use crate::render::{DrawText, Render};
 
 mod render;
 
@@ -52,7 +53,11 @@ impl<'a> Plot<'a> {
 
   fn draw(&self, render: &mut Render) {
     if let Some(title) = &self.title {
-      render.draw_text(title);
+      render.draw_text(DrawText {
+        text: title,
+        position: Point { x: 512.0, y: 20.0 },
+        ..Default::default()
+      });
     }
   }
 }

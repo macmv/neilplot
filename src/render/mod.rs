@@ -34,6 +34,13 @@ enum Target<'a> {
   Image(&'a Path),
 }
 
+#[derive(Default)]
+pub struct DrawText<'a> {
+  pub text:      &'a str,
+  pub position:  Point,
+  pub transform: Affine,
+}
+
 impl Plot<'_> {
   pub fn save(&self, path: impl AsRef<Path>) { self.render(Target::Image(path.as_ref())); }
 
@@ -78,26 +85,19 @@ impl Render {
     }
   }
 
-  pub fn draw_text(&mut self, text: &str) {
-    let mut builder = self.layout.ranged_builder(&mut self.font, &text, 1.0, false);
+  pub fn draw_text(&mut self, text: DrawText<'_>) {
+    let mut builder = self.layout.ranged_builder(&mut self.font, text.text, 1.0, false);
 
     builder.push_default(StyleProperty::FontSize(16.0));
     builder.push_default(StyleProperty::Brush(Brush::Solid(Color::BLACK)));
 
-    let mut layout = builder.build(&text);
+    let mut layout = builder.build(text.text);
 
     const MAX_WIDTH: Option<f32> = Some(100.0);
     layout.break_all_lines(MAX_WIDTH);
     layout.align(MAX_WIDTH, Alignment::Start, Default::default());
 
-    let origin = Point::new(50.0, 50.0);
-
-    let mut rect = Rect::new(
-      origin.x,
-      origin.y,
-      origin.x + f64::from(layout.width()),
-      origin.y + f64::from(layout.height()),
-    );
+    let mut rect = Rect::new(0.0, 0.0, f64::from(layout.width()), f64::from(layout.height()));
 
     for line in layout.lines() {
       for item in line.items() {
@@ -113,7 +113,7 @@ impl Render {
           .draw_glyphs(run.font())
           .brush(&glyph_run.style().brush)
           .hint(true)
-          .transform(Affine::IDENTITY)
+          .transform(text.transform.then_translate(text.position.to_vec2()))
           .glyph_transform(
             run.synthesis().skew().map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0)),
           )
