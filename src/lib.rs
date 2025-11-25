@@ -64,5 +64,26 @@ impl<'a> Plot<'a> {
         ..Default::default()
       });
     }
+
+    if let Some(x_label) = &self.x_label {
+      render.draw_text(DrawText {
+        text: x_label,
+        size: 24.0,
+        position: Point { x: 20.0, y: 512.0 },
+        transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
+        horizontal_align: Align::Center,
+        ..Default::default()
+      });
+    }
+
+    if let Some(y_label) = &self.y_label {
+      render.draw_text(DrawText {
+        text: y_label,
+        size: 24.0,
+        position: Point { x: 512.0, y: 960.0 },
+        horizontal_align: Align::Center,
+        ..Default::default()
+      });
+    }
   }
 }
