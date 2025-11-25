@@ -1,9 +1,7 @@
 use polars::prelude::Column;
 
-pub struct Plot {}
-
 #[derive(Default)]
-pub struct PlotBuilder<'a> {
+pub struct Plot<'a> {
   title:   Option<String>,
   x_label: Option<String>,
   y_label: Option<String>,
@@ -20,11 +18,9 @@ struct Series<'a> {
 
 struct SeriesData {}
 
-impl Plot {
-  pub fn new() -> PlotBuilder<'static> { PlotBuilder::default() }
-}
+impl<'a> Plot<'a> {
+  pub fn new() -> Plot<'a> { Plot::default() }
 
-impl<'a> PlotBuilder<'a> {
   pub fn title(&mut self, title: &str) -> &mut Self {
     self.title = Some(title.to_string());
     self
@@ -49,6 +45,4 @@ impl<'a> PlotBuilder<'a> {
     });
     self
   }
-
-  pub fn build(self) -> Plot { Plot {} }
 }
