@@ -2,7 +2,7 @@ use parley::FontWeight;
 use polars::prelude::Column;
 use vello::{kurbo::Point, peniko::Color};
 
-use crate::render::{DrawText, Render};
+use crate::render::{Align, DrawText, Render};
 
 mod render;
 
@@ -60,6 +60,7 @@ impl<'a> Plot<'a> {
         weight: FontWeight::BOLD,
         brush: Color::BLACK.into(),
         position: Point { x: 512.0, y: 20.0 },
+        horizontal_align: Align::Center,
         ..Default::default()
       });
     }

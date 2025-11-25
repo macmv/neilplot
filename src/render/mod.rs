@@ -3,7 +3,7 @@ use std::path::Path;
 use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
 use vello::{
   Renderer,
-  kurbo::{Affine, Point, Rect},
+  kurbo::{Affine, Point, Rect, Size},
   peniko::{Brush, Color, Fill},
   wgpu::{self, TextureDescriptor},
 };
@@ -34,14 +34,37 @@ enum Target<'a> {
   Image(&'a Path),
 }
 
-#[derive(Default)]
 pub struct DrawText<'a> {
-  pub text:      &'a str,
-  pub size:      f32,
-  pub weight:    FontWeight,
-  pub brush:     Brush,
-  pub position:  Point,
-  pub transform: Affine,
+  pub text:             &'a str,
+  pub size:             f32,
+  pub weight:           FontWeight,
+  pub brush:            Brush,
+  pub position:         Point,
+  pub transform:        Affine,
+  pub horizontal_align: Align,
+  pub vertical_align:   Align,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Align {
+  Start,
+  Center,
+  End,
+}
+
+impl Default for DrawText<'_> {
+  fn default() -> Self {
+    DrawText {
+      text:             "",
+      size:             12.0,
+      weight:           FontWeight::NORMAL,
+      brush:            Color::BLACK.into(),
+      position:         Point::ORIGIN,
+      transform:        Affine::IDENTITY,
+      horizontal_align: Align::Start,
+      vertical_align:   Align::Start,
+    }
+  }
 }
 
 impl Plot<'_> {
@@ -101,7 +124,22 @@ impl Render {
     layout.break_all_lines(MAX_WIDTH);
     layout.align(MAX_WIDTH, Alignment::Start, Default::default());
 
-    let mut rect = Rect::new(0.0, 0.0, f64::from(layout.width()), f64::from(layout.height()));
+    let size = Size::new(f64::from(layout.width()), f64::from(layout.height()));
+    let mut rect = Rect::from_origin_size(
+      Point {
+        x: match text.horizontal_align {
+          Align::Start => 0.0,
+          Align::Center => -size.width / 2.0,
+          Align::End => -size.width,
+        },
+        y: match text.vertical_align {
+          Align::Start => 0.0,
+          Align::Center => -size.height / 2.0,
+          Align::End => -size.height,
+        },
+      },
+      size,
+    );
 
     for line in layout.lines() {
       for item in line.items() {
