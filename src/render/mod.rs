@@ -120,9 +120,8 @@ impl Render {
 
     let mut layout = builder.build(text.text);
 
-    const MAX_WIDTH: Option<f32> = Some(100.0);
-    layout.break_all_lines(MAX_WIDTH);
-    layout.align(MAX_WIDTH, Alignment::Start, Default::default());
+    layout.break_all_lines(None);
+    layout.align(None, Alignment::Start, Default::default());
 
     let size = Size::new(f64::from(layout.width()), f64::from(layout.height()));
     let mut rect = Rect::from_origin_size(
