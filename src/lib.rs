@@ -19,10 +19,12 @@ pub struct Plot<'a> {
 }
 
 pub struct Series<'a> {
-  x:      &'a Column,
-  y:      &'a Column,
-  line:   Option<SeriesLine>,
-  points: Option<SeriesPoints>,
+  x:       &'a Column,
+  y:       &'a Column,
+  x_range: (f64, f64),
+  y_range: (f64, f64),
+  line:    Option<SeriesLine>,
+  points:  Option<SeriesPoints>,
 }
 
 pub struct SeriesLine {
@@ -68,10 +70,18 @@ impl<'a> Plot<'a> {
 
   pub fn series(&mut self, x: &'a Column, y: &'a Column) -> &mut Series<'a> {
     self.series.push(Series {
-      x:      x,
-      y:      y,
-      line:   Some(SeriesLine::default()),
-      points: None,
+      x:       x,
+      y:       y,
+      x_range: (
+        x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      ),
+      y_range: (
+        y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      ),
+      line:    Some(SeriesLine::default()),
+      points:  None,
     });
     self.series.last_mut().unwrap()
   }
@@ -133,11 +143,7 @@ impl Plot<'_> {
       if let Some(line) = &series.line {
         let mut shape = BezPath::new();
 
-        for i in 0..series.x.len() {
-          let x = series.x.get(i).unwrap().try_extract::<f64>().unwrap();
-          let y = series.y.get(i).unwrap().try_extract::<f64>().unwrap();
-          let point = Point::new(50.0 + (x * 900.0 / 10.0), 950.0 - (y * 900.0 / 10.0));
-
+        for (i, point) in series.iter_points().enumerate() {
           if i == 0 {
             shape.move_to(point);
           } else {
@@ -153,22 +159,31 @@ impl Plot<'_> {
         render.scene.stroke(&stroke, render.transform, &line.color, None, &shape);
       }
 
-      for i in 0..series.x.len() {
-        let x = series.x.get(i).unwrap().try_extract::<f64>().unwrap();
-        let y = series.y.get(i).unwrap().try_extract::<f64>().unwrap();
-        let plot_x = 50.0 + (x * 900.0 / 10.0);
-        let plot_y = 950.0 - (y * 900.0 / 10.0);
-
+      for point in series.iter_points() {
         if let Some(points) = &series.points {
           render.scene.fill(
             Fill::NonZero,
             render.transform,
             &points.color,
             None,
-            &Circle::new(Point { x: plot_x, y: plot_y }, points.size),
+            &Circle::new(point, points.size),
           );
         }
       }
     }
+  }
+}
+
+impl Series<'_> {
+  fn iter_points(&self) -> impl Iterator<Item = Point> + '_ {
+    (0..self.x.len()).map(move |i| {
+      let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
+      let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
+
+      let x = 50.0 + ((x - self.x_range.0) * 900.0 / (self.x_range.1 - self.x_range.0));
+      let y = 950.0 - ((y - self.y_range.0) * 900.0 / (self.y_range.1 - self.y_range.0));
+
+      Point::new(x, y)
+    })
   }
 }
