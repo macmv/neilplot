@@ -9,7 +9,7 @@ fn main() -> PolarsResult<()> {
   plot.title("Foo");
   plot.x_label("X Axis");
   plot.y_label("Y Axis");
-  plot.series(df.column("a")?, df.column("b")?).points();
+  plot.series(df.column("a")?, df.column("b")?).y_min(0.0).points();
 
   plot.save("examples/plot_csv.png");
 

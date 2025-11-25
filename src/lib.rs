@@ -91,6 +91,23 @@ impl<'a> Series<'a> {
     }
   }
 
+  pub fn x_min(&mut self, min: f64) -> &mut Self {
+    self.x_range.0 = min;
+    self
+  }
+  pub fn x_max(&mut self, max: f64) -> &mut Self {
+    self.x_range.1 = max;
+    self
+  }
+  pub fn y_min(&mut self, min: f64) -> &mut Self {
+    self.y_range.0 = min;
+    self
+  }
+  pub fn y_max(&mut self, max: f64) -> &mut Self {
+    self.y_range.1 = max;
+    self
+  }
+
   pub fn points(&mut self) -> &mut Self {
     self.points = Some(SeriesPoints::default());
     self
