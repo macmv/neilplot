@@ -118,8 +118,8 @@ impl Render {
     }
   }
 
-  pub fn draw_line(&mut self, start: Point, end: Point, brush: Brush, width: f64) {
-    self.scene.stroke(&Stroke::new(width), self.transform, &brush, None, &Line::new(start, end));
+  pub fn draw_line(&mut self, start: Point, end: Point, brush: &Brush, width: f64) {
+    self.scene.stroke(&Stroke::new(width), self.transform, brush, None, &Line::new(start, end));
   }
 
   pub fn draw_text(&mut self, text: DrawText<'_>) {

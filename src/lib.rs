@@ -18,14 +18,35 @@ pub struct Plot<'a> {
   series: Vec<Series<'a>>,
 }
 
-struct Series<'a> {
-  x:    &'a Column,
-  y:    &'a Column,
-  name: Option<String>,
-  data: SeriesData,
+pub struct Series<'a> {
+  x:      &'a Column,
+  y:      &'a Column,
+  line:   Option<SeriesLine>,
+  points: Option<SeriesPoints>,
 }
 
-struct SeriesData {}
+pub struct SeriesLine {
+  pub width: f64,
+  pub color: Brush,
+  pub dash:  Option<Vec<f32>>,
+}
+
+pub struct SeriesPoints {
+  pub size:  f64,
+  pub color: Brush,
+}
+
+impl Default for SeriesLine {
+  fn default() -> Self {
+    SeriesLine { width: 2.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)), dash: None }
+  }
+}
+
+impl Default for SeriesPoints {
+  fn default() -> Self {
+    SeriesPoints { size: 5.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)) }
+  }
+}
 
 impl<'a> Plot<'a> {
   pub fn new() -> Plot<'a> { Plot::default() }
@@ -45,20 +66,28 @@ impl<'a> Plot<'a> {
     self
   }
 
-  pub fn line(&mut self, x: &'a Column, y: &'a Column, name: &str) -> &mut Self {
+  pub fn series(&mut self, x: &'a Column, y: &'a Column) -> &mut Series<'a> {
     self.series.push(Series {
-      x:    x,
-      y:    y,
-      name: Some(name.to_string()),
-      data: SeriesData {},
+      x:      x,
+      y:      y,
+      line:   Some(SeriesLine::default()),
+      points: None,
     });
+    self.series.last_mut().unwrap()
+  }
+}
+
+impl Series<'_> {
+  pub fn points(&mut self) -> &mut Self {
+    self.points = Some(SeriesPoints::default());
     self
   }
+}
 
+impl Plot<'_> {
   fn draw(&self, render: &mut Render) {
     const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
     const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
-    const SERIES_COLOR: Brush = Brush::Solid(Color::from_rgb8(117, 158, 208));
 
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
@@ -97,8 +126,8 @@ impl<'a> Plot<'a> {
       });
     }
 
-    render.draw_line(Point::new(50.0, 950.0), Point::new(950.0, 950.0), LINE_COLOR, 2.0);
-    render.draw_line(Point::new(50.0, 950.0), Point::new(50.0, 50.0), LINE_COLOR, 2.0);
+    render.draw_line(Point::new(50.0, 950.0), Point::new(950.0, 950.0), &LINE_COLOR, 2.0);
+    render.draw_line(Point::new(50.0, 950.0), Point::new(50.0, 50.0), &LINE_COLOR, 2.0);
 
     for series in &self.series {
       for i in 0..series.x.len() {
@@ -107,15 +136,19 @@ impl<'a> Plot<'a> {
         let plot_x = 50.0 + (x * 900.0 / 10.0);
         let plot_y = 950.0 - (y * 900.0 / 10.0);
 
-        render.scene.fill(
-          Fill::NonZero,
-          render.transform,
-          &SERIES_COLOR,
-          None,
-          &Circle::new(Point { x: plot_x, y: plot_y }, 8.0),
-        );
+        if let Some(points) = &series.points {
+          render.scene.fill(
+            Fill::NonZero,
+            render.transform,
+            &points.color,
+            None,
+            &Circle::new(Point { x: plot_x, y: plot_y }, points.size),
+          );
+        }
 
-        if i > 0 {
+        if let Some(line) = &series.line
+          && i > 0
+        {
           let prev_x = series.x.get(i - 1).unwrap().try_extract::<f64>().unwrap();
           let prev_y = series.y.get(i - 1).unwrap().try_extract::<f64>().unwrap();
           let prev_plot_x = 50.0 + (prev_x * 900.0 / 10.0);
@@ -124,8 +157,8 @@ impl<'a> Plot<'a> {
           render.draw_line(
             Point::new(prev_plot_x, prev_plot_y),
             Point::new(plot_x, plot_y),
-            SERIES_COLOR,
-            2.0,
+            &line.color,
+            line.width,
           );
         }
       }
