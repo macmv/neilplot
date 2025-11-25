@@ -16,8 +16,8 @@ pub(crate) struct Render {
   font:   parley::FontContext,
   layout: parley::LayoutContext<Brush>,
 
-  transform:  Affine,
-  background: Color,
+  pub transform: Affine,
+  background:    Color,
 }
 
 struct GpuHandle {

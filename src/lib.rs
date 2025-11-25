@@ -1,8 +1,8 @@
 use parley::FontWeight;
 use polars::prelude::Column;
 use vello::{
-  kurbo::Point,
-  peniko::{Brush, Color},
+  kurbo::{Circle, Point},
+  peniko::{Brush, Color, Fill},
 };
 
 use crate::render::{Align, DrawText, Render};
@@ -58,6 +58,7 @@ impl<'a> Plot<'a> {
   fn draw(&self, render: &mut Render) {
     const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
     const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
+    const SERIES_COLOR: Brush = Brush::Solid(Color::from_rgb8(117, 158, 208));
 
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
@@ -96,7 +97,38 @@ impl<'a> Plot<'a> {
       });
     }
 
-    render.draw_line(Point::new(50.0, 940.0), Point::new(950.0, 940.0), LINE_COLOR, 2.0);
-    render.draw_line(Point::new(50.0, 940.0), Point::new(50.0, 50.0), LINE_COLOR, 2.0);
+    render.draw_line(Point::new(50.0, 950.0), Point::new(950.0, 950.0), LINE_COLOR, 2.0);
+    render.draw_line(Point::new(50.0, 950.0), Point::new(50.0, 50.0), LINE_COLOR, 2.0);
+
+    for series in &self.series {
+      for i in 0..series.x.len() {
+        let x = series.x.get(i).unwrap().try_extract::<f64>().unwrap();
+        let y = series.y.get(i).unwrap().try_extract::<f64>().unwrap();
+        let plot_x = 50.0 + (x * 900.0 / 10.0);
+        let plot_y = 950.0 - (y * 900.0 / 10.0);
+
+        render.scene.fill(
+          Fill::NonZero,
+          render.transform,
+          &SERIES_COLOR,
+          None,
+          &Circle::new(Point { x: plot_x, y: plot_y }, 8.0),
+        );
+
+        if i > 0 {
+          let prev_x = series.x.get(i - 1).unwrap().try_extract::<f64>().unwrap();
+          let prev_y = series.y.get(i - 1).unwrap().try_extract::<f64>().unwrap();
+          let prev_plot_x = 50.0 + (prev_x * 900.0 / 10.0);
+          let prev_plot_y = 950.0 - (prev_y * 900.0 / 10.0);
+
+          render.draw_line(
+            Point::new(prev_plot_x, prev_plot_y),
+            Point::new(plot_x, plot_y),
+            SERIES_COLOR,
+            2.0,
+          );
+        }
+      }
+    }
   }
 }
