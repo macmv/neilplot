@@ -85,7 +85,7 @@ impl Render {
 
   fn draw_text(&mut self, text: &str) {
     const DISPLAY_SCALE: f32 = 5.0;
-    let mut builder = self.layout.ranged_builder(&mut self.font, &text, DISPLAY_SCALE, true);
+    let mut builder = self.layout.ranged_builder(&mut self.font, &text, DISPLAY_SCALE, false);
 
     builder.push_default(StyleProperty::FontSize(32.0));
     builder.push_default(StyleProperty::Brush(Brush::Solid(Color::WHITE)));
