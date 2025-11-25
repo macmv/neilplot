@@ -1,5 +1,6 @@
+use parley::FontWeight;
 use polars::prelude::Column;
-use vello::kurbo::{Affine, Point, Vec2};
+use vello::{kurbo::Point, peniko::Color};
 
 use crate::render::{DrawText, Render};
 
@@ -55,6 +56,9 @@ impl<'a> Plot<'a> {
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
         text: title,
+        size: 32.0,
+        weight: FontWeight::BOLD,
+        brush: Color::BLACK.into(),
         position: Point { x: 512.0, y: 20.0 },
         ..Default::default()
       });

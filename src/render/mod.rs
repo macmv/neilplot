@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use parley::{Alignment, PositionedLayoutItem, StyleProperty};
+use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
 use vello::{
   Renderer,
   kurbo::{Affine, Point, Rect},
@@ -37,6 +37,9 @@ enum Target<'a> {
 #[derive(Default)]
 pub struct DrawText<'a> {
   pub text:      &'a str,
+  pub size:      f32,
+  pub weight:    FontWeight,
+  pub brush:     Brush,
   pub position:  Point,
   pub transform: Affine,
 }
@@ -88,8 +91,9 @@ impl Render {
   pub fn draw_text(&mut self, text: DrawText<'_>) {
     let mut builder = self.layout.ranged_builder(&mut self.font, text.text, 1.0, false);
 
-    builder.push_default(StyleProperty::FontSize(16.0));
-    builder.push_default(StyleProperty::Brush(Brush::Solid(Color::BLACK)));
+    builder.push_default(StyleProperty::FontSize(text.size));
+    builder.push_default(StyleProperty::FontWeight(text.weight));
+    builder.push_default(StyleProperty::Brush(text.brush));
 
     let mut layout = builder.build(text.text);
 
