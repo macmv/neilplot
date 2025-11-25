@@ -14,6 +14,8 @@ struct Render {
   scene:  vello::Scene,
   font:   parley::FontContext,
   layout: parley::LayoutContext<Brush>,
+
+  background: Color,
 }
 
 struct GpuHandle {
@@ -62,7 +64,7 @@ impl Plot<'_> {
         &render.scene,
         &view,
         &vello::RenderParams {
-          base_color:          palette::css::BLACK,
+          base_color:          render.background,
           width:               config.width,
           height:              config.height,
           antialiasing_method: vello::AaConfig::Msaa16,
@@ -77,9 +79,10 @@ impl Plot<'_> {
 impl Render {
   fn new() -> Self {
     Render {
-      scene:  vello::Scene::new(),
-      font:   parley::FontContext::new(),
-      layout: parley::LayoutContext::new(),
+      scene:      vello::Scene::new(),
+      font:       parley::FontContext::new(),
+      layout:     parley::LayoutContext::new(),
+      background: Color::WHITE,
     }
   }
 
@@ -87,7 +90,7 @@ impl Render {
     let mut builder = self.layout.ranged_builder(&mut self.font, &text, 1.0, false);
 
     builder.push_default(StyleProperty::FontSize(16.0));
-    builder.push_default(StyleProperty::Brush(Brush::Solid(Color::WHITE)));
+    builder.push_default(StyleProperty::Brush(Brush::Solid(Color::BLACK)));
 
     let mut layout = builder.build(&text);
 
