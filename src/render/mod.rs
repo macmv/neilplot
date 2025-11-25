@@ -1,13 +1,20 @@
 use std::path::Path;
 
+use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
 use vello::{
   Renderer,
-  kurbo::{Affine, Circle},
-  peniko::{Color, color::palette},
+  kurbo::{Affine, Circle, Point, Rect},
+  peniko::{Brush, Color, Fill, color::palette},
   wgpu::{self, TextureDescriptor},
 };
 
 use crate::Plot;
+
+struct Render {
+  scene:  vello::Scene,
+  font:   parley::FontContext,
+  layout: parley::LayoutContext<Brush>,
+}
 
 struct GpuHandle {
   device:  wgpu::Device,
@@ -31,12 +38,10 @@ impl Plot<'_> {
     let config = RenderConfig { width: 1024, height: 1024 };
     let handle = GpuHandle::new(&config);
 
-    // Initialize wgpu and get handles
-    let mut renderer = Renderer::new(&handle.device, vello::RendererOptions::default())
-      .expect("Failed to create renderer");
-    // Create scene and draw stuff in it
-    let mut scene = vello::Scene::new();
-    scene.fill(
+    let mut render = Render::new();
+    render.foo();
+
+    render.scene.fill(
       vello::peniko::Fill::NonZero,
       Affine::IDENTITY,
       Color::from_rgb8(242, 140, 168),
@@ -46,11 +51,15 @@ impl Plot<'_> {
 
     let view = &handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+    // Initialize wgpu and get handles
+    let mut renderer = Renderer::new(&handle.device, vello::RendererOptions::default())
+      .expect("Failed to create renderer");
+
     renderer
       .render_to_texture(
         &handle.device,
         &handle.queue,
-        &scene,
+        &render.scene,
         &view,
         &vello::RenderParams {
           base_color:          palette::css::BLACK,
@@ -62,6 +71,73 @@ impl Plot<'_> {
       .expect("Failed to render to a texture");
 
     target.render(&handle, config);
+  }
+}
+
+impl Render {
+  fn new() -> Self {
+    Render {
+      scene:  vello::Scene::new(),
+      font:   parley::FontContext::new(),
+      layout: parley::LayoutContext::new(),
+    }
+  }
+
+  fn foo(&mut self) {
+    const DISPLAY_SCALE: f32 = 5.0;
+    const TEXT: &str = "Lorem Ipsum...";
+    let mut builder = self.layout.ranged_builder(&mut self.font, &TEXT, DISPLAY_SCALE, true);
+
+    builder.push_default(StyleProperty::FontSize(32.0));
+    builder.push_default(StyleProperty::Brush(Brush::Solid(Color::WHITE)));
+    builder.push(StyleProperty::FontWeight(FontWeight::new(600.0)), 0..4);
+
+    let mut layout = builder.build(&TEXT);
+
+    const MAX_WIDTH: Option<f32> = Some(100.0);
+    layout.break_all_lines(MAX_WIDTH);
+    layout.align(MAX_WIDTH, Alignment::Start, Default::default());
+
+    let origin = Point::new(50.0, 50.0);
+
+    let mut rect = Rect::new(
+      origin.x,
+      origin.y,
+      origin.x + f64::from(layout.width()),
+      origin.y + f64::from(layout.height()),
+    );
+
+    for line in layout.lines() {
+      for item in line.items() {
+        let PositionedLayoutItem::GlyphRun(glyph_run) = item else { continue };
+
+        let run = glyph_run.run();
+        rect.y0 = rect.y1.round() - rect.height();
+        let mut x = rect.x0 as f32 + glyph_run.offset();
+        let baseline = (rect.y0 as f32 + glyph_run.baseline()).round();
+
+        self
+          .scene
+          .draw_glyphs(run.font())
+          .brush(&glyph_run.style().brush)
+          .hint(true)
+          .transform(Affine::IDENTITY)
+          .glyph_transform(
+            run.synthesis().skew().map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0)),
+          )
+          .font_size(run.font_size())
+          .normalized_coords(run.normalized_coords())
+          .draw(
+            Fill::NonZero,
+            glyph_run.glyphs().map(|glyph| {
+              let gx = x + glyph.x;
+              let gy = baseline + glyph.y;
+              x += glyph.advance;
+              vello::Glyph { id: glyph.id.into(), x: gx, y: gy }
+            }),
+          );
+      }
+    }
   }
 }
 
