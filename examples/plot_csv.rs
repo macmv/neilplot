@@ -11,5 +11,7 @@ fn main() -> PolarsResult<()> {
   plot.y_label("Y Axis");
   plot.line(df.column("a")?, df.column("b")?, "Line Plot");
 
+  plot.save("examples/plot_csv.png");
+
   Ok(())
 }

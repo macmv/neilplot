@@ -1,5 +1,7 @@
 use polars::prelude::Column;
 
+mod render;
+
 #[derive(Default)]
 pub struct Plot<'a> {
   title:   Option<String>,
