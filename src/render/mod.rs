@@ -3,21 +3,21 @@ use std::path::Path;
 use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
 use vello::{
   Renderer,
-  kurbo::{Affine, Line, Point, Rect, Size, Stroke},
-  peniko::{Brush, Color, Fill},
+  kurbo::{Affine, Point, Rect, Shape, Size, Stroke},
+  peniko::{Brush, BrushRef, Color, Fill},
   wgpu::{self, TextureDescriptor},
 };
 
 use crate::Plot;
 
 pub(crate) struct Render {
-  pub scene: vello::Scene,
+  scene: vello::Scene,
 
   font:   parley::FontContext,
   layout: parley::LayoutContext<Brush>,
 
-  pub transform: Affine,
-  background:    Color,
+  transform:  Affine,
+  background: Color,
 }
 
 struct GpuHandle {
@@ -118,8 +118,17 @@ impl Render {
     }
   }
 
-  pub fn draw_line(&mut self, start: Point, end: Point, brush: &Brush, width: f64) {
-    self.scene.stroke(&Stroke::new(width), self.transform, brush, None, &Line::new(start, end));
+  pub fn stroke<'a>(
+    &mut self,
+    shape: &impl Shape,
+    brush: impl Into<BrushRef<'a>>,
+    stroke: &Stroke,
+  ) {
+    self.scene.stroke(stroke, self.transform, brush, None, shape);
+  }
+
+  pub fn fill<'a>(&mut self, shape: &impl Shape, brush: impl Into<BrushRef<'a>>) {
+    self.scene.fill(Fill::NonZero, self.transform, brush, None, shape);
   }
 
   pub fn draw_text(&mut self, text: DrawText<'_>) {

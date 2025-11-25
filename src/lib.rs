@@ -1,8 +1,8 @@
 use parley::FontWeight;
 use polars::prelude::Column;
 use vello::{
-  kurbo::{BezPath, Circle, Point, Stroke},
-  peniko::{Brush, Color, Fill},
+  kurbo::{BezPath, Circle, Line, Point, Stroke},
+  peniko::{Brush, Color},
 };
 
 use crate::render::{Align, DrawText, Render};
@@ -156,8 +156,17 @@ impl Plot<'_> {
       });
     }
 
-    render.draw_line(Point::new(50.0, 950.0), Point::new(950.0, 950.0), &LINE_COLOR, 2.0);
-    render.draw_line(Point::new(50.0, 950.0), Point::new(50.0, 50.0), &LINE_COLOR, 2.0);
+    let border_stroke = Stroke::new(2.0);
+    render.stroke(
+      &Line::new(Point::new(50.0, 950.0), Point::new(950.0, 950.0)),
+      &LINE_COLOR,
+      &border_stroke,
+    );
+    render.stroke(
+      &Line::new(Point::new(50.0, 950.0), Point::new(50.0, 50.0)),
+      &LINE_COLOR,
+      &border_stroke,
+    );
 
     for series in &self.series {
       if let Some(line) = &series.line {
@@ -176,18 +185,12 @@ impl Plot<'_> {
           stroke = stroke.with_dashes(0.0, dash.clone());
         }
 
-        render.scene.stroke(&stroke, render.transform, &line.color, None, &shape);
+        render.stroke(&shape, &line.color, &stroke);
       }
 
       for point in series.iter_points() {
         if let Some(points) = &series.points {
-          render.scene.fill(
-            Fill::NonZero,
-            render.transform,
-            &points.color,
-            None,
-            &Circle::new(point, points.size),
-          );
+          render.fill(&Circle::new(point, points.size), &points.color);
         }
       }
     }
