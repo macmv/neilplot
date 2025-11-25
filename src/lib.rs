@@ -1,6 +1,9 @@
 use parley::FontWeight;
 use polars::prelude::Column;
-use vello::{kurbo::Point, peniko::Color};
+use vello::{
+  kurbo::Point,
+  peniko::{Brush, Color},
+};
 
 use crate::render::{Align, DrawText, Render};
 
@@ -53,12 +56,15 @@ impl<'a> Plot<'a> {
   }
 
   fn draw(&self, render: &mut Render) {
+    const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
+    const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
+
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
         text: title,
         size: 32.0,
         weight: FontWeight::BOLD,
-        brush: Color::BLACK.into(),
+        brush: TEXT_COLOR,
         position: Point { x: 512.0, y: 20.0 },
         horizontal_align: Align::Center,
         ..Default::default()
@@ -70,6 +76,7 @@ impl<'a> Plot<'a> {
         text: x_label,
         size: 24.0,
         position: Point { x: 20.0, y: 512.0 },
+        brush: TEXT_COLOR,
         transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
         horizontal_align: Align::Center,
         ..Default::default()
@@ -81,9 +88,13 @@ impl<'a> Plot<'a> {
         text: y_label,
         size: 24.0,
         position: Point { x: 512.0, y: 960.0 },
+        brush: TEXT_COLOR,
         horizontal_align: Align::Center,
         ..Default::default()
       });
     }
+
+    render.draw_line(Point::new(50.0, 940.0), Point::new(950.0, 940.0), LINE_COLOR, 2.0);
+    render.draw_line(Point::new(50.0, 940.0), Point::new(50.0, 50.0), LINE_COLOR, 2.0);
   }
 }

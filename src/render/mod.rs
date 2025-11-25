@@ -3,7 +3,7 @@ use std::path::Path;
 use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
 use vello::{
   Renderer,
-  kurbo::{Affine, Point, Rect, Size},
+  kurbo::{Affine, Line, Point, Rect, Size, Stroke},
   peniko::{Brush, Color, Fill},
   wgpu::{self, TextureDescriptor},
 };
@@ -109,6 +109,12 @@ impl Render {
       layout:     parley::LayoutContext::new(),
       background: Color::WHITE,
     }
+  }
+
+  pub fn draw_line(&mut self, start: Point, end: Point, brush: Brush, width: f64) {
+    let transform = Affine::scale(1.024);
+
+    self.scene.stroke(&Stroke::new(width), transform, &brush, None, &Line::new(start, end));
   }
 
   pub fn draw_text(&mut self, text: DrawText<'_>) {
