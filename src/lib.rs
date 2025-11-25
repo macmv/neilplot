@@ -65,7 +65,7 @@ impl<'a> Plot<'a> {
         size: 32.0,
         weight: FontWeight::BOLD,
         brush: TEXT_COLOR,
-        position: Point { x: 512.0, y: 20.0 },
+        position: Point { x: 500.0, y: 20.0 },
         horizontal_align: Align::Center,
         ..Default::default()
       });
@@ -75,9 +75,10 @@ impl<'a> Plot<'a> {
       render.draw_text(DrawText {
         text: x_label,
         size: 24.0,
-        position: Point { x: 512.0, y: 960.0 },
+        position: Point { x: 500.0, y: 950.0 },
         brush: TEXT_COLOR,
         horizontal_align: Align::Center,
+        vertical_align: Align::Start,
         ..Default::default()
       });
     }
@@ -86,10 +87,11 @@ impl<'a> Plot<'a> {
       render.draw_text(DrawText {
         text: y_label,
         size: 24.0,
-        position: Point { x: 20.0, y: 512.0 },
+        position: Point { x: 45.0, y: 500.0 },
         brush: TEXT_COLOR,
         transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
         horizontal_align: Align::Center,
+        vertical_align: Align::End,
         ..Default::default()
       });
     }
