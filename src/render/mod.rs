@@ -39,7 +39,7 @@ impl Plot<'_> {
     let handle = GpuHandle::new(&config);
 
     let mut render = Render::new();
-    render.foo();
+    render.draw_text("hi");
 
     render.scene.fill(
       vello::peniko::Fill::NonZero,
@@ -83,16 +83,14 @@ impl Render {
     }
   }
 
-  fn foo(&mut self) {
+  fn draw_text(&mut self, text: &str) {
     const DISPLAY_SCALE: f32 = 5.0;
-    const TEXT: &str = "Lorem Ipsum...";
-    let mut builder = self.layout.ranged_builder(&mut self.font, &TEXT, DISPLAY_SCALE, true);
+    let mut builder = self.layout.ranged_builder(&mut self.font, &text, DISPLAY_SCALE, true);
 
     builder.push_default(StyleProperty::FontSize(32.0));
     builder.push_default(StyleProperty::Brush(Brush::Solid(Color::WHITE)));
-    builder.push(StyleProperty::FontWeight(FontWeight::new(600.0)), 0..4);
 
-    let mut layout = builder.build(&TEXT);
+    let mut layout = builder.build(&text);
 
     const MAX_WIDTH: Option<f32> = Some(100.0);
     layout.break_all_lines(MAX_WIDTH);
