@@ -1,7 +1,7 @@
 use parley::FontWeight;
 use polars::prelude::Column;
 use vello::{
-  kurbo::{Circle, Point},
+  kurbo::{BezPath, Circle, Point, Stroke},
   peniko::{Brush, Color, Fill},
 };
 
@@ -28,7 +28,7 @@ pub struct Series<'a> {
 pub struct SeriesLine {
   pub width: f64,
   pub color: Brush,
-  pub dash:  Option<Vec<f32>>,
+  pub dash:  Option<Vec<f64>>,
 }
 
 pub struct SeriesPoints {
@@ -130,6 +130,29 @@ impl Plot<'_> {
     render.draw_line(Point::new(50.0, 950.0), Point::new(50.0, 50.0), &LINE_COLOR, 2.0);
 
     for series in &self.series {
+      if let Some(line) = &series.line {
+        let mut shape = BezPath::new();
+
+        for i in 0..series.x.len() {
+          let x = series.x.get(i).unwrap().try_extract::<f64>().unwrap();
+          let y = series.y.get(i).unwrap().try_extract::<f64>().unwrap();
+          let point = Point::new(50.0 + (x * 900.0 / 10.0), 950.0 - (y * 900.0 / 10.0));
+
+          if i == 0 {
+            shape.move_to(point);
+          } else {
+            shape.line_to(point);
+          }
+        }
+
+        let mut stroke = Stroke::new(line.width);
+        if let Some(dash) = &line.dash {
+          stroke = stroke.with_dashes(0.0, dash.clone());
+        }
+
+        render.scene.stroke(&stroke, render.transform, &line.color, None, &shape);
+      }
+
       for i in 0..series.x.len() {
         let x = series.x.get(i).unwrap().try_extract::<f64>().unwrap();
         let y = series.y.get(i).unwrap().try_extract::<f64>().unwrap();
@@ -143,22 +166,6 @@ impl Plot<'_> {
             &points.color,
             None,
             &Circle::new(Point { x: plot_x, y: plot_y }, points.size),
-          );
-        }
-
-        if let Some(line) = &series.line
-          && i > 0
-        {
-          let prev_x = series.x.get(i - 1).unwrap().try_extract::<f64>().unwrap();
-          let prev_y = series.y.get(i - 1).unwrap().try_extract::<f64>().unwrap();
-          let prev_plot_x = 50.0 + (prev_x * 900.0 / 10.0);
-          let prev_plot_y = 950.0 - (prev_y * 900.0 / 10.0);
-
-          render.draw_line(
-            Point::new(prev_plot_x, prev_plot_y),
-            Point::new(plot_x, plot_y),
-            &line.color,
-            line.width,
           );
         }
       }
