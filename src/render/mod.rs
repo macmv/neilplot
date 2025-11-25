@@ -1,17 +1,18 @@
 use std::path::Path;
 
-use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
+use parley::{Alignment, PositionedLayoutItem, StyleProperty};
 use vello::{
   Renderer,
-  kurbo::{Affine, Circle, Point, Rect},
-  peniko::{Brush, Color, Fill, color::palette},
+  kurbo::{Affine, Point, Rect},
+  peniko::{Brush, Color, Fill},
   wgpu::{self, TextureDescriptor},
 };
 
 use crate::Plot;
 
-struct Render {
-  scene:  vello::Scene,
+pub(crate) struct Render {
+  pub scene: vello::Scene,
+
   font:   parley::FontContext,
   layout: parley::LayoutContext<Brush>,
 
@@ -41,19 +42,10 @@ impl Plot<'_> {
     let handle = GpuHandle::new(&config);
 
     let mut render = Render::new();
-    render.draw_text("hi");
-
-    render.scene.fill(
-      vello::peniko::Fill::NonZero,
-      Affine::IDENTITY,
-      Color::from_rgb8(242, 140, 168),
-      None,
-      &Circle::new((420.0, 200.0), 120.0),
-    );
+    self.draw(&mut render);
 
     let view = &handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    // Initialize wgpu and get handles
     let mut renderer = Renderer::new(&handle.device, vello::RendererOptions::default())
       .expect("Failed to create renderer");
 
@@ -86,7 +78,7 @@ impl Render {
     }
   }
 
-  fn draw_text(&mut self, text: &str) {
+  pub fn draw_text(&mut self, text: &str) {
     let mut builder = self.layout.ranged_builder(&mut self.font, &text, 1.0, false);
 
     builder.push_default(StyleProperty::FontSize(16.0));

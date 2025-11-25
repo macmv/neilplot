@@ -1,5 +1,7 @@
 use polars::prelude::Column;
 
+use crate::render::Render;
+
 mod render;
 
 #[derive(Default)]
@@ -46,5 +48,11 @@ impl<'a> Plot<'a> {
       data: SeriesData {},
     });
     self
+  }
+
+  fn draw(&self, render: &mut Render) {
+    if let Some(title) = &self.title {
+      render.draw_text(title);
+    }
   }
 }
