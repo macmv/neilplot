@@ -75,9 +75,8 @@ impl<'a> Plot<'a> {
       render.draw_text(DrawText {
         text: x_label,
         size: 24.0,
-        position: Point { x: 20.0, y: 512.0 },
+        position: Point { x: 512.0, y: 960.0 },
         brush: TEXT_COLOR,
-        transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
         horizontal_align: Align::Center,
         ..Default::default()
       });
@@ -87,8 +86,9 @@ impl<'a> Plot<'a> {
       render.draw_text(DrawText {
         text: y_label,
         size: 24.0,
-        position: Point { x: 512.0, y: 960.0 },
+        position: Point { x: 20.0, y: 512.0 },
         brush: TEXT_COLOR,
+        transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
         horizontal_align: Align::Center,
         ..Default::default()
       });
