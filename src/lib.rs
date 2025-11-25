@@ -69,25 +69,28 @@ impl<'a> Plot<'a> {
   }
 
   pub fn series(&mut self, x: &'a Column, y: &'a Column) -> &mut Series<'a> {
-    self.series.push(Series {
-      x:       x,
-      y:       y,
-      x_range: (
-        x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-      y_range: (
-        y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-      line:    Some(SeriesLine::default()),
-      points:  None,
-    });
+    self.series.push(Series::new(x, y));
     self.series.last_mut().unwrap()
   }
 }
 
-impl Series<'_> {
+impl<'a> Series<'a> {
+  fn new(x: &'a Column, y: &'a Column) -> Self {
+    let x_min = x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
+    let x_max = x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
+    let y_min = y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
+    let y_max = y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
+
+    Series {
+      x,
+      y,
+      x_range: (x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min)),
+      y_range: (y_min - 0.1 * (y_max - y_min), y_max + 0.1 * (y_max - y_min)),
+      line: Some(SeriesLine::default()),
+      points: None,
+    }
+  }
+
   pub fn points(&mut self) -> &mut Self {
     self.points = Some(SeriesPoints::default());
     self
