@@ -16,15 +16,16 @@ pub struct Plot<'a> {
   pub x: Axis,
   pub y: Axis,
 
-  border: Option<Stroke>,
-  grid:   Option<Stroke>,
+  border: Option<StrokeStyle>,
+  grid:   Option<StrokeStyle>,
   title:  Option<String>,
 
   series: Vec<Series<'a>>,
 }
 
-pub struct StrokeBuilder<'a> {
-  stroke: &'a mut Stroke,
+pub struct StrokeStyle {
+  stroke: Stroke,
+  brush:  Brush,
 }
 
 #[derive(Default)]
@@ -69,7 +70,7 @@ impl<'a> Plot<'a> {
     Plot {
       x:      Axis::default(),
       y:      Axis::default(),
-      border: Some(Stroke::new(1.0)),
+      border: Some(StrokeStyle::new(1.0)),
       grid:   None,
       title:  None,
       series: Vec::new(),
@@ -83,14 +84,14 @@ impl<'a> Plot<'a> {
 
   pub fn no_border(&mut self) { self.border = None; }
 
-  pub fn border(&mut self) -> StrokeBuilder<'_> {
-    self.border = Some(Stroke::new(1.0));
-    StrokeBuilder { stroke: self.grid.as_mut().unwrap() }
+  pub fn border(&mut self) -> &mut StrokeStyle {
+    self.border = Some(StrokeStyle::new(1.0));
+    self.border.as_mut().unwrap()
   }
 
-  pub fn grid(&mut self) -> StrokeBuilder<'_> {
-    self.grid = Some(Stroke::new(1.0));
-    StrokeBuilder { stroke: self.grid.as_mut().unwrap() }
+  pub fn grid(&mut self) -> &mut StrokeStyle {
+    self.grid = Some(StrokeStyle::new(1.0));
+    self.grid.as_mut().unwrap()
   }
 
   pub fn series(&mut self, x: &'a Column, y: &'a Column) -> &mut Series<'a> {
@@ -113,7 +114,11 @@ impl<'a> Plot<'a> {
   }
 }
 
-impl<'a> StrokeBuilder<'a> {
+impl StrokeStyle {
+  fn new(width: f64) -> Self {
+    Self { stroke: Stroke::new(width), brush: Brush::Solid(Color::BLACK) }
+  }
+
   pub fn width(&mut self, width: f64) -> &mut Self {
     self.stroke.width = width;
     self
@@ -223,16 +228,16 @@ impl Plot<'_> {
           Point::new(viewport.x.min, viewport.y.min),
           Point::new(viewport.x.max, viewport.y.min),
         ),
-        &LINE_COLOR,
-        &stroke,
+        &stroke.brush,
+        &stroke.stroke,
       );
       render.stroke(
         &Line::new(
           Point::new(viewport.x.min, viewport.y.min),
           Point::new(viewport.x.min, viewport.y.max),
         ),
-        &LINE_COLOR,
-        &stroke,
+        &stroke.brush,
+        &stroke.stroke,
       );
     }
 
@@ -256,8 +261,8 @@ impl Plot<'_> {
       if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.max, vy)),
-          &LINE_COLOR,
-          &stroke,
+          &stroke.brush,
+          &stroke.stroke,
         );
       }
       render.draw_text(DrawText {
@@ -285,8 +290,8 @@ impl Plot<'_> {
       if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.max)),
-          &LINE_COLOR,
-          &stroke,
+          &stroke.brush,
+          &stroke.stroke,
         );
       }
       render.draw_text(DrawText {
