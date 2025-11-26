@@ -12,13 +12,13 @@ mod render;
 
 pub use bounds::{Bounds, Range};
 
-#[derive(Default)]
 pub struct Plot<'a> {
   pub x: Axis,
   pub y: Axis,
 
-  grid:  Option<Stroke>,
-  title: Option<String>,
+  border: Option<Stroke>,
+  grid:   Option<Stroke>,
+  title:  Option<String>,
 
   series: Vec<Series<'a>>,
 }
@@ -65,11 +65,27 @@ impl Default for SeriesPoints {
 }
 
 impl<'a> Plot<'a> {
-  pub fn new() -> Plot<'a> { Plot::default() }
+  pub fn new() -> Plot<'a> {
+    Plot {
+      x:      Axis::default(),
+      y:      Axis::default(),
+      border: Some(Stroke::new(1.0)),
+      grid:   None,
+      title:  None,
+      series: Vec::new(),
+    }
+  }
 
   pub fn title(&mut self, title: &str) -> &mut Self {
     self.title = Some(title.to_string());
     self
+  }
+
+  pub fn no_border(&mut self) { self.border = None; }
+
+  pub fn border(&mut self) -> StrokeBuilder<'_> {
+    self.border = Some(Stroke::new(1.0));
+    StrokeBuilder { stroke: self.grid.as_mut().unwrap() }
   }
 
   pub fn grid(&mut self) -> StrokeBuilder<'_> {
@@ -201,23 +217,26 @@ impl Plot<'_> {
       });
     }
 
-    let border_stroke = Stroke::new(2.0);
-    render.stroke(
-      &Line::new(
-        Point::new(viewport.x.min, viewport.y.min),
-        Point::new(viewport.x.max, viewport.y.min),
-      ),
-      &LINE_COLOR,
-      &border_stroke,
-    );
-    render.stroke(
-      &Line::new(
-        Point::new(viewport.x.min, viewport.y.min),
-        Point::new(viewport.x.min, viewport.y.max),
-      ),
-      &LINE_COLOR,
-      &border_stroke,
-    );
+    if let Some(stroke) = &self.border {
+      render.stroke(
+        &Line::new(
+          Point::new(viewport.x.min, viewport.y.min),
+          Point::new(viewport.x.max, viewport.y.min),
+        ),
+        &LINE_COLOR,
+        &stroke,
+      );
+      render.stroke(
+        &Line::new(
+          Point::new(viewport.x.min, viewport.y.min),
+          Point::new(viewport.x.min, viewport.y.max),
+        ),
+        &LINE_COLOR,
+        &stroke,
+      );
+    }
+
+    let tick_stroke = Stroke::new(1.0);
 
     let data_bounds = self.bounds();
     let transform = data_bounds.transform_to(viewport);
@@ -232,7 +251,7 @@ impl Plot<'_> {
       render.stroke(
         &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.min - 10.0, vy)),
         &LINE_COLOR,
-        &border_stroke.clone().with_start_cap(Cap::Butt),
+        &tick_stroke.clone().with_start_cap(Cap::Butt),
       );
       if let Some(stroke) = &self.grid {
         render.stroke(
@@ -261,7 +280,7 @@ impl Plot<'_> {
       render.stroke(
         &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.min + 10.0)),
         &LINE_COLOR,
-        &border_stroke.clone().with_start_cap(Cap::Butt),
+        &tick_stroke.clone().with_start_cap(Cap::Butt),
       );
       if let Some(stroke) = &self.grid {
         render.stroke(
