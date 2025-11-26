@@ -97,13 +97,7 @@ impl<'a> Series<'a> {
       y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
     );
 
-    Series {
-      x,
-      y,
-      bounds: Bounds::new(x_range, y_range).expand_by(0.1),
-      line: Some(SeriesLine::default()),
-      points: None,
-    }
+    Series { x, y, bounds: Bounds::new(x_range, y_range).expand_by(0.1), line: None, points: None }
   }
 
   pub fn x_min(&mut self, min: f64) -> &mut Self {
@@ -262,10 +256,16 @@ impl Plot<'_> {
         render.stroke(&shape, &line.color, &stroke);
       }
 
+      let points = if series.points.is_none() && series.line.is_none() {
+        &SeriesPoints::default()
+      } else if let Some(points) = &series.points {
+        points
+      } else {
+        continue;
+      };
+
       for point in series.iter().map(|p| transform * p) {
-        if let Some(points) = &series.points {
-          render.fill(&Circle::new(point, points.size), &points.color);
-        }
+        render.fill(&Circle::new(point, points.size), &points.color);
       }
     }
   }
