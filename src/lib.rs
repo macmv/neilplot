@@ -237,7 +237,7 @@ impl Plot<'_> {
       if let Some(line) = &series.line {
         let mut shape = BezPath::new();
 
-        for (i, point) in series.iter_points().enumerate() {
+        for (i, point) in series.iter_points(&viewport).enumerate() {
           if i == 0 {
             shape.move_to(point);
           } else {
@@ -253,7 +253,7 @@ impl Plot<'_> {
         render.stroke(&shape, &line.color, &stroke);
       }
 
-      for point in series.iter_points() {
+      for point in series.iter_points(&viewport) {
         if let Some(points) = &series.points {
           render.fill(&Circle::new(point, points.size), &points.color);
         }
@@ -263,21 +263,25 @@ impl Plot<'_> {
 }
 
 impl Series<'_> {
-  fn iter_points(&self) -> impl Iterator<Item = Point> + '_ {
+  fn iter_points<'a>(&'a self, bounds: &'a Bounds) -> impl Iterator<Item = Point> + 'a {
     (0..self.x.len()).map(move |i| {
       let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
       let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
 
-      let x = 50.0 + ((x - self.bounds.x.min) * 900.0 / (self.bounds.x.max - self.bounds.x.min));
-      let y = 950.0 - ((y - self.bounds.y.min) * 900.0 / (self.bounds.y.max - self.bounds.y.min));
-
-      Point::new(x, y)
+      transform_point(Point::new(x, y), &self.bounds, bounds)
     })
   }
 }
 
 fn transform(value: f64, from_range: &Range, to_range: &Range) -> f64 {
   to_range.min + (value - from_range.min) * to_range.size() / from_range.size()
+}
+
+fn transform_point(point: Point, from_bounds: &Bounds, to_bounds: &Bounds) -> Point {
+  Point::new(
+    transform(point.x, &from_bounds.x, &to_bounds.x),
+    transform(point.y, &from_bounds.y, &to_bounds.y),
+  )
 }
 
 impl Bounds {
