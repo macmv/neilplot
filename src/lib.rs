@@ -31,6 +31,7 @@ pub struct Bounds {
   pub y: Range,
 }
 
+#[derive(Clone, Copy)]
 pub struct Range {
   pub min: f64,
   pub max: f64,
@@ -97,7 +98,7 @@ impl<'a> Series<'a> {
     Series {
       x,
       y,
-      bounds: Bounds::new(x_range, y_range).expanded_by(0.1),
+      bounds: Bounds::new(x_range, y_range).expand_by(0.1),
       line: Some(SeriesLine::default()),
       points: None,
     }
@@ -131,7 +132,7 @@ impl Plot<'_> {
     const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
     const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
 
-    let viewport = Bounds::new(Range::new(80.0, 920.0), Range::new(920.0, 80.0));
+    let viewport = Bounds::new(Range::new(0.0, 1000.0), Range::new(1000.0, 0.0)).shrink(80.0);
 
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
@@ -287,8 +288,18 @@ fn transform_point(point: Point, from_bounds: &Bounds, to_bounds: &Bounds) -> Po
 impl Bounds {
   pub const fn new(x: Range, y: Range) -> Self { Bounds { x, y } }
 
-  pub const fn expanded_by(self, fract: f64) -> Self {
-    Bounds { x: self.x.expanded_by(fract), y: self.y.expanded_by(fract) }
+  pub const fn shrink(self, amount: f64) -> Self {
+    Bounds { x: self.x.shrink(amount), y: self.y.shrink(amount) }
+  }
+  pub const fn shrink_by(self, fract: f64) -> Self {
+    Bounds { x: self.x.shrink_by(fract), y: self.y.shrink(fract) }
+  }
+
+  pub const fn expand(self, amount: f64) -> Self {
+    Bounds { x: self.x.expand(amount), y: self.y.expand(amount) }
+  }
+  pub const fn expand_by(self, fract: f64) -> Self {
+    Bounds { x: self.x.expand_by(fract), y: self.y.expand_by(fract) }
   }
 }
 
@@ -296,9 +307,15 @@ impl Range {
   pub const fn new(min: f64, max: f64) -> Self { Range { min, max } }
   pub const fn size(&self) -> f64 { self.max - self.min }
 
-  pub const fn expanded_by(self, fract: f64) -> Self {
-    Range { min: self.min - self.size() * fract, max: self.max + self.size() * fract }
+  pub const fn shrink(self, amount: f64) -> Self { self.expand(-amount) }
+  pub const fn shrink_by(self, fract: f64) -> Self { self.shrink(self.size() * fract) }
+  pub const fn expand(self, amount: f64) -> Self {
+    Range {
+      min: self.min - amount * self.size().signum(),
+      max: self.max + amount * self.size().signum(),
+    }
   }
+  pub const fn expand_by(self, fract: f64) -> Self { self.expand(self.size() * fract) }
 
   pub const fn contains(&self, value: &f64) -> bool {
     (*value >= self.min && *value <= self.max) || (*value <= self.min && *value >= self.max)
