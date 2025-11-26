@@ -120,6 +120,11 @@ impl<'a> Series<'a> {
     )
   }
 
+  pub fn line(&mut self) -> &mut Self {
+    self.line = Some(SeriesLine::default());
+    self
+  }
+
   pub fn points(&mut self) -> &mut Self {
     self.points = Some(SeriesPoints::default());
     self
