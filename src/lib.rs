@@ -131,8 +131,7 @@ impl Plot<'_> {
     const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
     const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
 
-    let viewport_x = Range::new(80.0, 920.0);
-    let viewport_y = Range::new(920.0, 80.0);
+    let viewport = Bounds::new(Range::new(80.0, 920.0), Range::new(920.0, 80.0));
 
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
@@ -140,7 +139,7 @@ impl Plot<'_> {
         size: 32.0,
         weight: FontWeight::BOLD,
         brush: TEXT_COLOR,
-        position: Point { x: 500.0, y: viewport_y.max - 30.0 },
+        position: Point { x: 500.0, y: viewport.y.max - 30.0 },
         horizontal_align: Align::Center,
         ..Default::default()
       });
@@ -150,7 +149,7 @@ impl Plot<'_> {
       render.draw_text(DrawText {
         text: x_label,
         size: 24.0,
-        position: Point { x: 500.0, y: viewport_y.min + 40.0 },
+        position: Point { x: 500.0, y: viewport.y.min + 40.0 },
         brush: TEXT_COLOR,
         horizontal_align: Align::Center,
         vertical_align: Align::Start,
@@ -162,7 +161,7 @@ impl Plot<'_> {
       render.draw_text(DrawText {
         text: y_label,
         size: 24.0,
-        position: Point { x: viewport_x.min - 40.0, y: 500.0 },
+        position: Point { x: viewport.x.min - 40.0, y: 500.0 },
         brush: TEXT_COLOR,
         transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
         horizontal_align: Align::Center,
@@ -174,16 +173,16 @@ impl Plot<'_> {
     let border_stroke = Stroke::new(2.0);
     render.stroke(
       &Line::new(
-        Point::new(viewport_x.min, viewport_y.min),
-        Point::new(viewport_x.max, viewport_y.min),
+        Point::new(viewport.x.min, viewport.y.min),
+        Point::new(viewport.x.max, viewport.y.min),
       ),
       &LINE_COLOR,
       &border_stroke,
     );
     render.stroke(
       &Line::new(
-        Point::new(viewport_x.min, viewport_y.min),
-        Point::new(viewport_x.min, viewport_y.max),
+        Point::new(viewport.x.min, viewport.y.min),
+        Point::new(viewport.x.min, viewport.y.max),
       ),
       &LINE_COLOR,
       &border_stroke,
@@ -193,18 +192,18 @@ impl Plot<'_> {
     let iter = self.series[0].bounds.y.nice_ticks(ticks);
     let precision = iter.precision();
     for (y, vy) in iter
-      .map(|v| (v, transform(v, &self.series[0].bounds.y, &viewport_y)))
-      .filter(|(_, vy)| viewport_y.contains(vy))
+      .map(|v| (v, transform(v, &self.series[0].bounds.y, &viewport.y)))
+      .filter(|(_, vy)| viewport.y.contains(vy))
     {
       render.stroke(
-        &Line::new(Point::new(viewport_x.min, vy), Point::new(viewport_x.min - 10.0, vy)),
+        &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.min - 10.0, vy)),
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
       render.draw_text(DrawText {
         text: &format!("{:.*}", precision - 3, y),
         size: 12.0,
-        position: Point { x: viewport_x.min - 15.0, y: vy },
+        position: Point { x: viewport.x.min - 15.0, y: vy },
         brush: TEXT_COLOR,
         horizontal_align: Align::End,
         vertical_align: Align::Center,
@@ -215,18 +214,18 @@ impl Plot<'_> {
     let iter = self.series[0].bounds.x.nice_ticks(ticks);
     let precision = iter.precision();
     for (x, vx) in iter
-      .map(|v| (v, transform(v, &self.series[0].bounds.x, &viewport_x)))
-      .filter(|(_, vx)| viewport_x.contains(vx))
+      .map(|v| (v, transform(v, &self.series[0].bounds.x, &viewport.x)))
+      .filter(|(_, vx)| viewport.x.contains(vx))
     {
       render.stroke(
-        &Line::new(Point::new(vx, viewport_y.min), Point::new(vx, viewport_y.min + 10.0)),
+        &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.min + 10.0)),
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
       render.draw_text(DrawText {
         text: &format!("{:.*}", precision - 3, x),
         size: 12.0,
-        position: Point { x: vx, y: viewport_y.min + 15.0 },
+        position: Point { x: vx, y: viewport.y.min + 15.0 },
         brush: TEXT_COLOR,
         horizontal_align: Align::Center,
         vertical_align: Align::Start,
