@@ -285,6 +285,9 @@ impl Target<'_> {
 
         let mut app = App { surface: None, handle };
         event_loop.run_app(&mut app).unwrap();
+
+        // FIXME: Ideally, we'd drop this. But dropping it segfaults.
+        std::mem::forget(app);
       }
     }
   }
