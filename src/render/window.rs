@@ -2,18 +2,17 @@ use vello::wgpu;
 
 use crate::{
   Plot,
-  render::{GpuHandle, RenderConfig},
+  render::{GpuHandle, Render, RenderConfig},
 };
 
 pub fn show(plot: &Plot) {
   let event_loop = winit::event_loop::EventLoop::new().unwrap();
   event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
-  let mut app = App {
-    plot:    unsafe { std::mem::transmute::<&Plot, &Plot>(plot) },
-    surface: None,
-    handle:  None,
-  };
+  let mut render = Render::new();
+  plot.draw(&mut render);
+
+  let mut app = App { render, surface: None, handle: None };
   event_loop.run_app(&mut app).unwrap();
 
   // FIXME: Ideally, we'd drop this. But dropping it segfaults.
@@ -21,8 +20,7 @@ pub fn show(plot: &Plot) {
 }
 
 struct App {
-  // SAFETY: We keep the plot alive for the lifetime of the application.
-  plot: &'static Plot<'static>,
+  render: Render,
 
   surface: Option<(wgpu::Surface<'static>, wgpu::SurfaceConfiguration)>,
   handle:  Option<GpuHandle>,
@@ -108,7 +106,26 @@ impl winit::application::ApplicationHandler for App {
           };
 
           let config = RenderConfig { width: config.width, height: config.height };
-          self.plot.render(handle, &config);
+          let view = &handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+          let mut renderer =
+            vello::Renderer::new(&handle.device, vello::RendererOptions::default())
+              .expect("Failed to create renderer");
+
+          renderer
+            .render_to_texture(
+              &handle.device,
+              &handle.queue,
+              &self.render.scene,
+              &view,
+              &vello::RenderParams {
+                base_color:          self.render.background,
+                width:               config.width,
+                height:              config.height,
+                antialiasing_method: vello::AaConfig::Msaa16,
+              },
+            )
+            .expect("Failed to render to a texture");
 
           let mut encoder = handle.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder"),
