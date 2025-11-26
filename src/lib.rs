@@ -244,7 +244,9 @@ impl Plot<'_> {
       if let Some(line) = &series.line {
         let mut shape = BezPath::new();
 
-        for (i, point) in series.iter_points(&viewport).enumerate() {
+        for (i, point) in
+          series.iter().map(|p| transform_point(p, &data_bounds, &viewport)).enumerate()
+        {
           if i == 0 {
             shape.move_to(point);
           } else {
@@ -260,7 +262,7 @@ impl Plot<'_> {
         render.stroke(&shape, &line.color, &stroke);
       }
 
-      for point in series.iter_points(&viewport) {
+      for point in series.iter().map(|p| transform_point(p, &data_bounds, &viewport)) {
         if let Some(points) = &series.points {
           render.fill(&Circle::new(point, points.size), &points.color);
         }
@@ -270,12 +272,12 @@ impl Plot<'_> {
 }
 
 impl Series<'_> {
-  fn iter_points<'a>(&'a self, bounds: &'a Bounds) -> impl Iterator<Item = Point> + 'a {
+  fn iter<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
     (0..self.x.len()).map(move |i| {
       let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
       let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
 
-      transform_point(Point::new(x, y), &self.bounds, bounds)
+      Point::new(x, y)
     })
   }
 }
