@@ -178,6 +178,28 @@ impl Plot<'_> {
     );
 
     let ticks = 10;
+    let iter = self.series[0].y_range.nice_ticks(ticks);
+    let precision = iter.precision();
+    for y in iter {
+      let vy = 950.0
+        - ((y - self.series[0].y_range.min) * 900.0
+          / (self.series[0].y_range.max - self.series[0].y_range.min));
+      render.stroke(
+        &Line::new(Point::new(50.0, vy), Point::new(40.0, vy)),
+        &LINE_COLOR,
+        &border_stroke.clone().with_start_cap(Cap::Butt),
+      );
+      render.draw_text(DrawText {
+        text: &format!("{:.*}", precision - 3, y),
+        size: 12.0,
+        position: Point { x: 35.0, y: vy },
+        brush: TEXT_COLOR,
+        horizontal_align: Align::End,
+        vertical_align: Align::Center,
+        ..Default::default()
+      });
+    }
+
     let iter = self.series[0].x_range.nice_ticks(ticks);
     let precision = iter.precision();
     for x in iter {
