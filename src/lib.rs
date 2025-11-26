@@ -128,13 +128,16 @@ impl Plot<'_> {
     const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
     const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
 
+    let viewport_x = Range::new(80.0, 920.0);
+    let viewport_y = Range::new(920.0, 80.0);
+
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
         text: title,
         size: 32.0,
         weight: FontWeight::BOLD,
         brush: TEXT_COLOR,
-        position: Point { x: 500.0, y: 20.0 },
+        position: Point { x: 500.0, y: viewport_y.max - 30.0 },
         horizontal_align: Align::Center,
         ..Default::default()
       });
@@ -144,7 +147,7 @@ impl Plot<'_> {
       render.draw_text(DrawText {
         text: x_label,
         size: 24.0,
-        position: Point { x: 500.0, y: 950.0 },
+        position: Point { x: 500.0, y: viewport_y.min + 40.0 },
         brush: TEXT_COLOR,
         horizontal_align: Align::Center,
         vertical_align: Align::Start,
@@ -156,7 +159,7 @@ impl Plot<'_> {
       render.draw_text(DrawText {
         text: y_label,
         size: 24.0,
-        position: Point { x: 45.0, y: 500.0 },
+        position: Point { x: viewport_x.min - 40.0, y: 500.0 },
         brush: TEXT_COLOR,
         transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
         horizontal_align: Align::Center,
@@ -164,9 +167,6 @@ impl Plot<'_> {
         ..Default::default()
       });
     }
-
-    let viewport_x = Range::new(50.0, 950.0);
-    let viewport_y = Range::new(950.0, 50.0);
 
     let border_stroke = Stroke::new(2.0);
     render.stroke(
