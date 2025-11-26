@@ -17,6 +17,7 @@ pub struct Plot<'a> {
   pub x: Axis,
   pub y: Axis,
 
+  grid:  bool,
   title: Option<String>,
 
   series: Vec<Series<'a>>,
@@ -64,6 +65,11 @@ impl<'a> Plot<'a> {
 
   pub fn title(&mut self, title: &str) -> &mut Self {
     self.title = Some(title.to_string());
+    self
+  }
+
+  pub fn grid(&mut self) -> &mut Self {
+    self.grid = true;
     self
   }
 
@@ -211,11 +217,13 @@ impl Plot<'_> {
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
-      render.stroke(
-        &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.max, vy)),
-        &LINE_COLOR,
-        &grid_stroke,
-      );
+      if self.grid {
+        render.stroke(
+          &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.max, vy)),
+          &LINE_COLOR,
+          &grid_stroke,
+        );
+      }
       render.draw_text(DrawText {
         text: &format!("{:.*}", (precision - 3).min(0), y),
         size: 12.0,
@@ -238,11 +246,13 @@ impl Plot<'_> {
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
-      render.stroke(
-        &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.max)),
-        &LINE_COLOR,
-        &grid_stroke,
-      );
+      if self.grid {
+        render.stroke(
+          &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.max)),
+          &LINE_COLOR,
+          &grid_stroke,
+        );
+      }
       render.draw_text(DrawText {
         text: &format!("{:.*}", (precision - 3).min(0), x),
         size: 12.0,
