@@ -21,10 +21,15 @@ pub struct Plot<'a> {
 pub struct Series<'a> {
   x:       &'a Column,
   y:       &'a Column,
-  x_range: (f64, f64),
-  y_range: (f64, f64),
+  x_range: Range,
+  y_range: Range,
   line:    Option<SeriesLine>,
   points:  Option<SeriesPoints>,
+}
+
+pub struct Range {
+  pub min: f64,
+  pub max: f64,
 }
 
 pub struct SeriesLine {
@@ -84,27 +89,27 @@ impl<'a> Series<'a> {
     Series {
       x,
       y,
-      x_range: (x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min)),
-      y_range: (y_min - 0.1 * (y_max - y_min), y_max + 0.1 * (y_max - y_min)),
+      x_range: Range::new(x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min)),
+      y_range: Range::new(y_min - 0.1 * (y_max - y_min), y_max + 0.1 * (y_max - y_min)),
       line: Some(SeriesLine::default()),
       points: None,
     }
   }
 
   pub fn x_min(&mut self, min: f64) -> &mut Self {
-    self.x_range.0 = min;
+    self.x_range.min = min;
     self
   }
   pub fn x_max(&mut self, max: f64) -> &mut Self {
-    self.x_range.1 = max;
+    self.x_range.max = max;
     self
   }
   pub fn y_min(&mut self, min: f64) -> &mut Self {
-    self.y_range.0 = min;
+    self.y_range.min = min;
     self
   }
   pub fn y_max(&mut self, max: f64) -> &mut Self {
-    self.y_range.1 = max;
+    self.y_range.max = max;
     self
   }
 
@@ -169,7 +174,7 @@ impl Plot<'_> {
     );
 
     let ticks = 10;
-    let step = (self.series[0].x_range.1 - self.series[0].x_range.0) / f64::from(ticks);
+    let step = (self.series[0].x_range.max - self.series[0].x_range.min) / f64::from(ticks);
     let k = step.log10().floor();
     let base = step / 10f64.powf(k);
 
@@ -182,8 +187,8 @@ impl Plot<'_> {
     };
 
     let step = nice_base * 10f64.powf(k);
-    let lo = (self.series[0].x_range.0 / step).floor() * step;
-    let hi = (self.series[0].x_range.1 / step).ceil() * step;
+    let lo = (self.series[0].x_range.min / step).floor() * step;
+    let hi = (self.series[0].x_range.max / step).ceil() * step;
 
     let precision = (-k as i32 + 4).max(0) as usize;
     let round = |v: f64| -> f64 {
@@ -194,8 +199,8 @@ impl Plot<'_> {
     let mut x = lo;
     while x <= hi + step * 0.5 {
       let vx = 50.0
-        + ((round(x) - self.series[0].x_range.0) * 900.0
-          / (self.series[0].x_range.1 - self.series[0].x_range.0));
+        + ((round(x) - self.series[0].x_range.min) * 900.0
+          / (self.series[0].x_range.max - self.series[0].x_range.min));
       render.stroke(
         &Line::new(Point::new(vx, 950.0), Point::new(vx, 960.0)),
         &LINE_COLOR,
@@ -248,10 +253,14 @@ impl Series<'_> {
       let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
       let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
 
-      let x = 50.0 + ((x - self.x_range.0) * 900.0 / (self.x_range.1 - self.x_range.0));
-      let y = 950.0 - ((y - self.y_range.0) * 900.0 / (self.y_range.1 - self.y_range.0));
+      let x = 50.0 + ((x - self.x_range.min) * 900.0 / (self.x_range.max - self.x_range.min));
+      let y = 950.0 - ((y - self.y_range.min) * 900.0 / (self.y_range.max - self.y_range.min));
 
       Point::new(x, y)
     })
   }
+}
+
+impl Range {
+  pub fn new(min: f64, max: f64) -> Self { Range { min, max } }
 }
