@@ -35,11 +35,6 @@ struct RenderConfig {
   height: u32,
 }
 
-enum Target<'a> {
-  Image(&'a Path),
-  Screen,
-}
-
 pub struct DrawText<'a> {
   pub text:             &'a str,
   pub size:             f32,
@@ -74,13 +69,28 @@ impl Default for DrawText<'_> {
 }
 
 impl Plot<'_> {
-  pub fn save(&self, path: impl AsRef<Path>) { self.render(Target::Image(path.as_ref())); }
-  pub fn show(&self) { self.render(Target::Screen); }
-
-  fn render(&self, target: Target<'_>) {
+  pub fn save(&self, path: impl AsRef<Path>) {
     let config = RenderConfig { width: 2048, height: 2048 };
     let handle = GpuHandle::new(&config, None);
+    self.render(&handle, &config);
+    texture::save(handle, config, path.as_ref());
+  }
 
+  pub fn show(&self) {
+    let config = RenderConfig { width: 2048, height: 2048 };
+    let handle = GpuHandle::new(&config, None);
+    self.render(&handle, &config);
+    let event_loop = winit::event_loop::EventLoop::new().unwrap();
+    event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+
+    let mut app = App { surface: None, handle };
+    event_loop.run_app(&mut app).unwrap();
+
+    // FIXME: Ideally, we'd drop this. But dropping it segfaults.
+    std::mem::forget(app);
+  }
+
+  fn render(&self, handle: &GpuHandle, config: &RenderConfig) {
     let mut render = Render::new();
     // Everything uses a 1000x1000 coordinate system.
     render.transform = Affine::scale_non_uniform(
@@ -108,8 +118,6 @@ impl Plot<'_> {
         },
       )
       .expect("Failed to render to a texture");
-
-    target.render(handle, config);
   }
 }
 
@@ -230,25 +238,6 @@ impl GpuHandle {
     });
 
     GpuHandle { instance, adapter, device, queue, texture }
-  }
-}
-
-impl Target<'_> {
-  fn render(&self, handle: GpuHandle, config: RenderConfig) {
-    match self {
-      Target::Image(path) => texture::render(handle, config, path),
-
-      Target::Screen => {
-        let event_loop = winit::event_loop::EventLoop::new().unwrap();
-        event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
-
-        let mut app = App { surface: None, handle };
-        event_loop.run_app(&mut app).unwrap();
-
-        // FIXME: Ideally, we'd drop this. But dropping it segfaults.
-        std::mem::forget(app);
-      }
-    }
   }
 }
 

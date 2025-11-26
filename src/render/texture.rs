@@ -4,7 +4,7 @@ use vello::wgpu;
 
 use crate::render::{GpuHandle, RenderConfig};
 
-pub fn render(handle: GpuHandle, config: RenderConfig, path: &Path) {
+pub fn save(handle: GpuHandle, config: RenderConfig, path: &Path) {
   let buffer = handle.device.create_buffer(&wgpu::BufferDescriptor {
     label:              Some("Output Buffer"),
     size:               (4 * config.width * config.height) as u64,
