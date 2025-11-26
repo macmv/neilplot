@@ -139,8 +139,9 @@ impl Plot<'_> {
         size: 32.0,
         weight: FontWeight::BOLD,
         brush: TEXT_COLOR,
-        position: Point { x: 500.0, y: viewport.y.max - 30.0 },
+        position: Point { x: 500.0, y: viewport.y.max - 10.0 },
         horizontal_align: Align::Center,
+        vertical_align: Align::End,
         ..Default::default()
       });
     }
