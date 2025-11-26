@@ -165,14 +165,23 @@ impl Plot<'_> {
       });
     }
 
+    let viewport_x = Range::new(50.0, 950.0);
+    let viewport_y = Range::new(950.0, 50.0);
+
     let border_stroke = Stroke::new(2.0);
     render.stroke(
-      &Line::new(Point::new(50.0, 950.0), Point::new(950.0, 950.0)),
+      &Line::new(
+        Point::new(viewport_x.min, viewport_y.min),
+        Point::new(viewport_x.max, viewport_y.min),
+      ),
       &LINE_COLOR,
       &border_stroke,
     );
     render.stroke(
-      &Line::new(Point::new(50.0, 950.0), Point::new(50.0, 50.0)),
+      &Line::new(
+        Point::new(viewport_x.min, viewport_y.min),
+        Point::new(viewport_x.min, viewport_y.max),
+      ),
       &LINE_COLOR,
       &border_stroke,
     );
@@ -180,19 +189,19 @@ impl Plot<'_> {
     let ticks = 10;
     let iter = self.series[0].y_range.nice_ticks(ticks);
     let precision = iter.precision();
-    for y in iter {
-      let vy = 950.0
-        - ((y - self.series[0].y_range.min) * 900.0
-          / (self.series[0].y_range.max - self.series[0].y_range.min));
+    for (y, vy) in iter
+      .map(|v| (v, transform(v, &self.series[0].y_range, &viewport_y)))
+      .filter(|(_, vy)| viewport_y.contains(vy))
+    {
       render.stroke(
-        &Line::new(Point::new(50.0, vy), Point::new(40.0, vy)),
+        &Line::new(Point::new(viewport_x.min, vy), Point::new(viewport_x.min - 10.0, vy)),
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
       render.draw_text(DrawText {
         text: &format!("{:.*}", precision - 3, y),
         size: 12.0,
-        position: Point { x: 35.0, y: vy },
+        position: Point { x: viewport_x.min - 15.0, y: vy },
         brush: TEXT_COLOR,
         horizontal_align: Align::End,
         vertical_align: Align::Center,
@@ -202,19 +211,19 @@ impl Plot<'_> {
 
     let iter = self.series[0].x_range.nice_ticks(ticks);
     let precision = iter.precision();
-    for x in iter {
-      let vx = 50.0
-        + ((x - self.series[0].x_range.min) * 900.0
-          / (self.series[0].x_range.max - self.series[0].x_range.min));
+    for (x, vx) in iter
+      .map(|v| (v, transform(v, &self.series[0].x_range, &viewport_x)))
+      .filter(|(_, vx)| viewport_x.contains(vx))
+    {
       render.stroke(
-        &Line::new(Point::new(vx, 950.0), Point::new(vx, 960.0)),
+        &Line::new(Point::new(vx, viewport_y.min), Point::new(vx, viewport_y.min + 10.0)),
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
       render.draw_text(DrawText {
         text: &format!("{:.*}", precision - 3, x),
         size: 12.0,
-        position: Point { x: vx, y: 965.0 },
+        position: Point { x: vx, y: viewport_y.min + 15.0 },
         brush: TEXT_COLOR,
         horizontal_align: Align::Center,
         vertical_align: Align::Start,
@@ -265,12 +274,20 @@ impl Series<'_> {
   }
 }
 
+fn transform(value: f64, from_range: &Range, to_range: &Range) -> f64 {
+  to_range.min + (value - from_range.min) * to_range.size() / from_range.size()
+}
+
 impl Range {
   pub const fn new(min: f64, max: f64) -> Self { Range { min, max } }
   pub const fn size(&self) -> f64 { self.max - self.min }
 
   pub const fn expanded_by(self, fract: f64) -> Self {
     Range { min: self.min - self.size() * fract, max: self.max + self.size() * fract }
+  }
+
+  pub const fn contains(&self, value: &f64) -> bool {
+    (*value >= self.min && *value <= self.max) || (*value <= self.min && *value >= self.max)
   }
 
   pub fn nice_ticks(&self, count: u32) -> TicksIter {
