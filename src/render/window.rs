@@ -9,19 +9,19 @@ pub fn show(plot: &Plot) {
   let event_loop = winit::event_loop::EventLoop::new().unwrap();
   event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
-  let mut render = Render::new();
-  plot.draw(&mut render);
-
-  let mut app = App { render, init: None };
+  let mut app = App { plot, stale: true, render: None, init: None };
   event_loop.run_app(&mut app).unwrap();
 
   // FIXME: Ideally, we'd drop this. But dropping it segfaults.
   std::mem::forget(app);
 }
 
-struct App {
-  render: Render,
-  init:   Option<Init>,
+struct App<'a> {
+  plot:   &'a Plot<'a>,
+  stale:  bool,
+  render: Option<Render>,
+
+  init: Option<Init>,
 }
 
 struct Init {
@@ -33,7 +33,7 @@ struct Init {
   vello: vello::Renderer,
 }
 
-impl winit::application::ApplicationHandler for App {
+impl winit::application::ApplicationHandler for App<'_> {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
     if self.init.is_some() {
       return;
@@ -110,13 +110,39 @@ impl winit::application::ApplicationHandler for App {
               .handle
               .resize(&RenderConfig { width: init.config.width, height: init.config.height });
             init.surface.configure(&init.handle.device, &init.config);
+
+            self.stale = true;
           }
         }
       }
 
       winit::event::WindowEvent::RedrawRequested => {
         if let Some(init) = &mut self.init {
-          init.redraw(&self.render);
+          if self.render.is_none() || self.stale {
+            self.stale = false;
+            if self.render.is_none() {
+              self.render = Some(Render::new());
+            }
+            self.render.as_mut().unwrap().scene.reset();
+            self.plot.draw(self.render.as_mut().unwrap());
+
+            init
+              .vello
+              .render_to_texture(
+                &init.handle.device,
+                &init.handle.queue,
+                &self.render.as_ref().unwrap().scene,
+                &init.handle.view,
+                &vello::RenderParams {
+                  base_color:          self.render.as_ref().unwrap().background,
+                  width:               init.config.width,
+                  height:              init.config.height,
+                  antialiasing_method: vello::AaConfig::Msaa16,
+                },
+              )
+              .expect("Failed to render to a texture");
+          }
+          init.redraw();
         }
       }
 
@@ -126,23 +152,7 @@ impl winit::application::ApplicationHandler for App {
 }
 
 impl Init {
-  fn redraw(&mut self, render: &Render) {
-    self
-      .vello
-      .render_to_texture(
-        &self.handle.device,
-        &self.handle.queue,
-        &render.scene,
-        &self.handle.view,
-        &vello::RenderParams {
-          base_color:          render.background,
-          width:               self.config.width,
-          height:              self.config.height,
-          antialiasing_method: vello::AaConfig::Msaa16,
-        },
-      )
-      .expect("Failed to render to a texture");
-
+  fn redraw(&mut self) {
     let frame = match self.surface.get_current_texture() {
       Ok(frame) => frame,
       Err(wgpu::SurfaceError::Lost) => {
