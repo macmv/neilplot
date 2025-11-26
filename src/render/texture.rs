@@ -1,10 +1,27 @@
 use std::path::Path;
 
-use vello::wgpu;
+use vello::wgpu::{self, TextureDescriptor};
 
 use crate::render::{GpuHandle, RenderConfig};
 
 pub fn save(handle: GpuHandle, config: RenderConfig, path: &Path) {
+  const OUTPUT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
+
+  // Copy the texture to a new texture in SRGB.
+  let output_texture = handle.device.create_texture(&TextureDescriptor {
+    label:           Some("Render Texture"),
+    size:            config.extent_3d(),
+    mip_level_count: 1,
+    sample_count:    1,
+    dimension:       wgpu::TextureDimension::D2,
+    format:          OUTPUT_FORMAT,
+    usage:           wgpu::TextureUsages::COPY_SRC
+      | wgpu::TextureUsages::TEXTURE_BINDING
+      | wgpu::TextureUsages::RENDER_ATTACHMENT,
+    view_formats:    &[],
+  });
+  let output_view = output_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
   let buffer = handle.device.create_buffer(&wgpu::BufferDescriptor {
     label:              Some("Output Buffer"),
     size:               (4 * config.width * config.height) as u64,
@@ -12,13 +29,15 @@ pub fn save(handle: GpuHandle, config: RenderConfig, path: &Path) {
     mapped_at_creation: false,
   });
 
-  let mut encoder = handle.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-    label: Some("texture_buffer_copy_encoder"),
-  });
+  let blit = wgpu::util::TextureBlitter::new(&handle.device, OUTPUT_FORMAT);
+  let mut encoder = handle
+    .device
+    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Output Encoder") });
 
+  blit.copy(&handle.device, &mut encoder, &handle.view, &output_view);
   encoder.copy_texture_to_buffer(
     wgpu::TexelCopyTextureInfo {
-      texture:   &handle.texture,
+      texture:   &output_texture,
       mip_level: 0,
       origin:    wgpu::Origin3d::ZERO,
       aspect:    wgpu::TextureAspect::All,
