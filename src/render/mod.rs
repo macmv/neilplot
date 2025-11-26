@@ -24,7 +24,6 @@ pub(crate) struct Render {
 }
 
 struct GpuHandle {
-  adapter: wgpu::Adapter,
   device:  wgpu::Device,
   queue:   wgpu::Queue,
   texture: wgpu::Texture,
@@ -196,18 +195,20 @@ impl Render {
   }
 }
 
-impl GpuHandle {
-  fn new(config: &RenderConfig, surface: Option<(wgpu::Instance, &wgpu::Surface)>) -> Self {
-    let (instance, surface) = match surface {
-      Some((instance, surface)) => (instance, Some(surface)),
-      None => (wgpu::Instance::new(&wgpu::InstanceDescriptor::default()), None),
-    };
+const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-      compatible_surface: surface,
-      ..Default::default()
-    }))
-    .expect("Failed to create adapter");
+impl GpuHandle {
+  fn new(config: &RenderConfig, adapter: Option<wgpu::Adapter>) -> Self {
+    let adapter = match adapter {
+      Some(adapter) => adapter,
+      None => {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+        let adapter =
+          pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+            .expect("Failed to create adapter");
+        adapter
+      }
+    };
 
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
       label:             None,
@@ -224,12 +225,29 @@ impl GpuHandle {
       mip_level_count: 1,
       sample_count:    1,
       dimension:       wgpu::TextureDimension::D2,
-      format:          wgpu::TextureFormat::Rgba8Unorm,
-      usage:           wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC,
+      format:          FORMAT,
+      usage:           wgpu::TextureUsages::STORAGE_BINDING
+        | wgpu::TextureUsages::COPY_SRC
+        | wgpu::TextureUsages::TEXTURE_BINDING,
       view_formats:    &[],
     });
 
-    GpuHandle { adapter, device, queue, texture }
+    GpuHandle { device, queue, texture }
+  }
+
+  fn resize(&mut self, config: &RenderConfig) {
+    self.texture = self.device.create_texture(&TextureDescriptor {
+      label:           Some("Render Texture"),
+      size:            config.extent_3d(),
+      mip_level_count: 1,
+      sample_count:    1,
+      dimension:       wgpu::TextureDimension::D2,
+      format:          FORMAT,
+      usage:           wgpu::TextureUsages::STORAGE_BINDING
+        | wgpu::TextureUsages::COPY_SRC
+        | wgpu::TextureUsages::TEXTURE_BINDING,
+      view_formats:    &[],
+    });
   }
 }
 

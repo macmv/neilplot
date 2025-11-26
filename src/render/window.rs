@@ -42,11 +42,18 @@ impl winit::application::ApplicationHandler for App {
     let config = RenderConfig { width: 2048, height: 2048 };
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
     let surface = instance.create_surface(window).unwrap();
-    let handle = GpuHandle::new(&config, Some((instance, &surface)));
 
-    let surface_caps = surface.get_capabilities(&handle.adapter);
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+      compatible_surface: Some(&surface),
+      ..Default::default()
+    }))
+    .expect("Failed to create adapter");
+
+    let surface_caps = surface.get_capabilities(&adapter);
     let surface_format =
       surface_caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(surface_caps.formats[0]);
+
+    let handle = GpuHandle::new(&config, Some(adapter));
 
     let config = wgpu::SurfaceConfiguration {
       usage:                         wgpu::TextureUsages::RENDER_ATTACHMENT
@@ -87,6 +94,9 @@ impl winit::application::ApplicationHandler for App {
           if new_size.width > 0 && new_size.height > 0 {
             init.config.width = new_size.width;
             init.config.height = new_size.height;
+            init
+              .handle
+              .resize(&RenderConfig { width: init.config.width, height: init.config.height });
             init.surface.configure(&init.handle.device, &init.config);
           }
         }
@@ -119,6 +129,7 @@ impl Init {
 
     let config = RenderConfig { width: self.config.width, height: self.config.height };
     let view = &self.handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let surface_view = &frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
     let mut renderer = vello::Renderer::new(&self.handle.device, vello::RendererOptions::default())
       .expect("Failed to create renderer");
@@ -143,20 +154,11 @@ impl Init {
       .device
       .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") });
 
-    encoder.copy_texture_to_texture(
-      wgpu::TexelCopyTextureInfo {
-        texture:   &self.handle.texture,
-        mip_level: 0,
-        origin:    wgpu::Origin3d::ZERO,
-        aspect:    wgpu::TextureAspect::All,
-      },
-      wgpu::TexelCopyTextureInfo {
-        texture:   &frame.texture,
-        mip_level: 0,
-        origin:    wgpu::Origin3d::ZERO,
-        aspect:    wgpu::TextureAspect::All,
-      },
-      config.extent_3d(),
+    wgpu::util::TextureBlitter::new(&self.handle.device, self.config.format).copy(
+      &self.handle.device,
+      &mut encoder,
+      &view,
+      &surface_view,
     );
 
     self.handle.queue.submit(std::iter::once(encoder.finish()));
