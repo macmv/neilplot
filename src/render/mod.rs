@@ -19,6 +19,7 @@ pub(crate) struct Render {
   font:   parley::FontContext,
   layout: parley::LayoutContext<Brush>,
 
+  config:     RenderConfig,
   transform:  Affine,
   background: Color,
 }
@@ -30,6 +31,7 @@ struct GpuHandle {
   view:    wgpu::TextureView,
 }
 
+#[derive(Clone, Copy)]
 struct RenderConfig {
   width:  u32,
   height: u32,
@@ -72,13 +74,13 @@ impl Plot<'_> {
   pub fn save(&self, path: impl AsRef<Path>) {
     let config = RenderConfig { width: 2048, height: 2048 };
     let handle = GpuHandle::new(&config, None);
-    self.render(&handle, &config);
+    self.render(&handle, config);
     texture::save(handle, config, path.as_ref());
   }
 
   pub fn show(&self) { window::show(self); }
 
-  fn render(&self, handle: &GpuHandle, config: &RenderConfig) {
+  fn render(&self, handle: &GpuHandle, config: RenderConfig) {
     let mut render = Render::new();
     render.resize(config);
     self.draw(&mut render);
@@ -111,6 +113,7 @@ impl Render {
       scene:      vello::Scene::new(),
       font:       parley::FontContext::new(),
       layout:     parley::LayoutContext::new(),
+      config:     RenderConfig { width: 1000, height: 1000 },
       transform:  Affine::IDENTITY,
       background: Color::WHITE,
     }
@@ -191,12 +194,13 @@ impl Render {
     }
   }
 
-  fn resize(&mut self, config: &RenderConfig) {
-    // Everything uses a 1000x1000 coordinate system.
-    self.transform = Affine::scale_non_uniform(
-      f64::from(config.width) / 1000.0,
-      f64::from(config.height) / 1000.0,
-    );
+  fn resize(&mut self, config: RenderConfig) {
+    self.config = config;
+    if config.width < config.height {
+      self.transform = Affine::scale(f64::from(config.width) / 1000.0);
+    } else {
+      self.transform = Affine::scale(f64::from(config.height) / 1000.0);
+    }
   }
 }
 
