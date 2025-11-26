@@ -1,7 +1,7 @@
 use parley::FontWeight;
 use polars::prelude::Column;
 use vello::{
-  kurbo::{BezPath, Cap, Circle, Line, Point, Stroke},
+  kurbo::{Affine, BezPath, Cap, Circle, Line, Point, Stroke},
   peniko::{Brush, Color},
 };
 
@@ -195,11 +195,13 @@ impl Plot<'_> {
       self.series.iter().map(|s| s.bounds).fold(Bounds::empty(), |a, b| a.union(b))
     });
 
+    let transform = data_bounds.transform_to(viewport);
+
     let ticks = 10;
     let iter = data_bounds.y.nice_ticks(ticks);
     let precision = iter.precision();
     for (y, vy) in iter
-      .map(|v| (v, transform(v, &data_bounds.y, &viewport.y)))
+      .map(|v| (v, (transform * Point::new(0.0, v)).y))
       .filter(|(_, vy)| viewport.y.contains(vy))
     {
       render.stroke(
@@ -221,7 +223,7 @@ impl Plot<'_> {
     let iter = data_bounds.x.nice_ticks(ticks);
     let precision = iter.precision();
     for (x, vx) in iter
-      .map(|v| (v, transform(v, &data_bounds.x, &viewport.x)))
+      .map(|v| (v, (transform * Point::new(v, 0.0)).x))
       .filter(|(_, vx)| viewport.x.contains(vx))
     {
       render.stroke(
@@ -244,9 +246,7 @@ impl Plot<'_> {
       if let Some(line) = &series.line {
         let mut shape = BezPath::new();
 
-        for (i, point) in
-          series.iter().map(|p| transform_point(p, &data_bounds, &viewport)).enumerate()
-        {
+        for (i, point) in series.iter().map(|p| transform * p).enumerate() {
           if i == 0 {
             shape.move_to(point);
           } else {
@@ -262,7 +262,7 @@ impl Plot<'_> {
         render.stroke(&shape, &line.color, &stroke);
       }
 
-      for point in series.iter().map(|p| transform_point(p, &data_bounds, &viewport)) {
+      for point in series.iter().map(|p| transform * p) {
         if let Some(points) = &series.points {
           render.fill(&Circle::new(point, points.size), &points.color);
         }
@@ -280,17 +280,6 @@ impl Series<'_> {
       Point::new(x, y)
     })
   }
-}
-
-fn transform(value: f64, from_range: &Range, to_range: &Range) -> f64 {
-  to_range.min + (value - from_range.min) * to_range.size() / from_range.size()
-}
-
-fn transform_point(point: Point, from_bounds: &Bounds, to_bounds: &Bounds) -> Point {
-  Point::new(
-    transform(point.x, &from_bounds.x, &to_bounds.x),
-    transform(point.y, &from_bounds.y, &to_bounds.y),
-  )
 }
 
 impl Bounds {
@@ -313,6 +302,15 @@ impl Bounds {
 
   pub fn union(&self, other: Bounds) -> Bounds {
     Bounds { x: self.x.union(other.x), y: self.y.union(other.y) }
+  }
+
+  fn transform_to(&self, viewport: Bounds) -> Affine {
+    let scale_x = viewport.x.size() / self.x.size();
+    let scale_y = viewport.y.size() / self.y.size();
+    let translate_x = viewport.x.min - self.x.min * scale_x;
+    let translate_y = viewport.y.min - self.y.min * scale_y;
+
+    Affine::new([scale_x, 0.0, 0.0, scale_y, translate_x, translate_y])
   }
 }
 
