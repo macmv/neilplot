@@ -8,8 +8,8 @@ fn main() -> PolarsResult<()> {
   let mut plot = Plot::new();
   plot.title("Foo");
   plot.x.title("X Axis");
-  plot.y.title("Y Axis");
-  plot.series(df.column("a")?, df.column("b")?).y_min(0.0).points();
+  plot.y.title("Y Axis").min(0.0);
+  plot.series(df.column("a")?, df.column("b")?).points();
 
   plot.save("examples/plot_csv.png");
 

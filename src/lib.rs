@@ -22,13 +22,13 @@ pub struct Plot<'a> {
 #[derive(Default)]
 pub struct Axis {
   title: Option<String>,
-  range: Range,
+  min:   Option<f64>,
+  max:   Option<f64>,
 }
 
 pub struct Series<'a> {
   x:      &'a Column,
   y:      &'a Column,
-  bounds: Bounds,
   line:   Option<SeriesLine>,
   points: Option<SeriesPoints>,
 }
@@ -81,7 +81,19 @@ impl<'a> Plot<'a> {
     self.series.last_mut().unwrap()
   }
 
-  fn bounds(&self) -> Bounds { Bounds::new(self.x.range, self.y.range) }
+  fn bounds(&self) -> Bounds {
+    let bounds = self
+      .series
+      .iter()
+      .map(|s| s.data_bounds())
+      .fold(Bounds::empty(), |a, b| a.union(b))
+      .expand_by(0.1);
+
+    Bounds::new(
+      Range::new(self.x.min.unwrap_or(bounds.x.min), self.x.max.unwrap_or(bounds.x.max)),
+      Range::new(self.y.min.unwrap_or(bounds.y.min), self.y.max.unwrap_or(bounds.y.max)),
+    )
+  }
 }
 
 impl Axis {
@@ -91,45 +103,30 @@ impl Axis {
   }
 
   pub fn min(&mut self, min: f64) -> &mut Self {
-    self.range.min = min;
+    self.min = Some(min);
     self
   }
 
   pub fn max(&mut self, max: f64) -> &mut Self {
-    self.range.max = max;
+    self.max = Some(max);
     self
   }
 }
 
 impl<'a> Series<'a> {
-  fn new(x: &'a Column, y: &'a Column) -> Self {
-    let x_range = Range::new(
-      x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-    );
-    let y_range = Range::new(
-      y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-    );
+  fn new(x: &'a Column, y: &'a Column) -> Self { Series { x, y, line: None, points: None } }
 
-    Series { x, y, bounds: Bounds::new(x_range, y_range).expand_by(0.1), line: None, points: None }
-  }
-
-  pub fn x_min(&mut self, min: f64) -> &mut Self {
-    self.bounds.x.min = min;
-    self
-  }
-  pub fn x_max(&mut self, max: f64) -> &mut Self {
-    self.bounds.x.max = max;
-    self
-  }
-  pub fn y_min(&mut self, min: f64) -> &mut Self {
-    self.bounds.y.min = min;
-    self
-  }
-  pub fn y_max(&mut self, max: f64) -> &mut Self {
-    self.bounds.y.max = max;
-    self
+  pub fn data_bounds(&self) -> Bounds {
+    Bounds::new(
+      Range::new(
+        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      ),
+      Range::new(
+        self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      ),
+    )
   }
 
   pub fn points(&mut self) -> &mut Self {
@@ -200,12 +197,7 @@ impl Plot<'_> {
       &border_stroke,
     );
 
-    let data_bounds = if self.bounds().is_empty() {
-      self.series.iter().map(|s| s.bounds).fold(Bounds::empty(), |a, b| a.union(b))
-    } else {
-      self.bounds()
-    };
-
+    let data_bounds = self.bounds();
     let transform = data_bounds.transform_to(viewport);
 
     let grid_stroke = Stroke::new(1.0).with_dashes(0.0, vec![2.0, 4.0]);
@@ -341,8 +333,6 @@ impl Bounds {
 
     Affine::new([scale_x, 0.0, 0.0, scale_y, translate_x, translate_y])
   }
-
-  fn is_empty(&self) -> bool { self.x.size() == 0.0 && self.y.size() == 0.0 }
 }
 
 impl Default for Range {
