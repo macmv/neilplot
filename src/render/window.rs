@@ -12,7 +12,7 @@ pub fn show(plot: &Plot) {
   let mut render = Render::new();
   plot.draw(&mut render);
 
-  let mut app = App { render, surface: None, handle: None };
+  let mut app = App { render, init: None };
   event_loop.run_app(&mut app).unwrap();
 
   // FIXME: Ideally, we'd drop this. But dropping it segfaults.
@@ -21,9 +21,13 @@ pub fn show(plot: &Plot) {
 
 struct App {
   render: Render,
+  init:   Option<Init>,
+}
 
-  surface: Option<(wgpu::Surface<'static>, wgpu::SurfaceConfiguration)>,
-  handle:  Option<GpuHandle>,
+struct Init {
+  surface: wgpu::Surface<'static>,
+  config:  wgpu::SurfaceConfiguration,
+  handle:  GpuHandle,
 }
 
 impl winit::application::ApplicationHandler for App {
@@ -57,8 +61,7 @@ impl winit::application::ApplicationHandler for App {
     };
     surface.configure(&handle.device, &config);
 
-    self.surface = Some((surface, config));
-    self.handle = Some(handle);
+    self.init = Some(Init { surface, config, handle });
   }
 
   fn window_event(
@@ -80,80 +83,84 @@ impl winit::application::ApplicationHandler for App {
       }
 
       winit::event::WindowEvent::Resized(new_size) => {
-        if let Some((surface, config)) = &mut self.surface {
+        if let Some(init) = &mut self.init {
           if new_size.width > 0 && new_size.height > 0 {
-            config.width = new_size.width;
-            config.height = new_size.height;
-            surface.configure(&self.handle.as_ref().unwrap().device, &config);
+            init.config.width = new_size.width;
+            init.config.height = new_size.height;
+            init.surface.configure(&init.handle.device, &init.config);
           }
         }
       }
 
       winit::event::WindowEvent::RedrawRequested => {
-        if let Some((surface, config)) = &self.surface {
-          let handle = self.handle.as_ref().unwrap();
-
-          let frame = match surface.get_current_texture() {
-            Ok(frame) => frame,
-            Err(wgpu::SurfaceError::Lost) => {
-              surface.configure(&handle.device, &config);
-              return;
-            }
-            Err(e) => {
-              eprintln!("Dropped frame: {e:?}");
-              return;
-            }
-          };
-
-          let config = RenderConfig { width: config.width, height: config.height };
-          let view = &handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-          let mut renderer =
-            vello::Renderer::new(&handle.device, vello::RendererOptions::default())
-              .expect("Failed to create renderer");
-
-          renderer
-            .render_to_texture(
-              &handle.device,
-              &handle.queue,
-              &self.render.scene,
-              &view,
-              &vello::RenderParams {
-                base_color:          self.render.background,
-                width:               config.width,
-                height:              config.height,
-                antialiasing_method: vello::AaConfig::Msaa16,
-              },
-            )
-            .expect("Failed to render to a texture");
-
-          let mut encoder = handle.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-          });
-
-          encoder.copy_texture_to_texture(
-            wgpu::TexelCopyTextureInfo {
-              texture:   &handle.texture,
-              mip_level: 0,
-              origin:    wgpu::Origin3d::ZERO,
-              aspect:    wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyTextureInfo {
-              texture:   &frame.texture,
-              mip_level: 0,
-              origin:    wgpu::Origin3d::ZERO,
-              aspect:    wgpu::TextureAspect::All,
-            },
-            config.extent_3d(),
-          );
-
-          self.handle.as_ref().unwrap().queue.submit(std::iter::once(encoder.finish()));
-
-          frame.present();
+        if let Some(init) = &self.init {
+          init.redraw(&self.render);
         }
       }
 
       _ => (),
     }
+  }
+}
+
+impl Init {
+  fn redraw(&self, render: &Render) {
+    let frame = match self.surface.get_current_texture() {
+      Ok(frame) => frame,
+      Err(wgpu::SurfaceError::Lost) => {
+        self.surface.configure(&self.handle.device, &self.config);
+        return;
+      }
+      Err(e) => {
+        eprintln!("Dropped frame: {e:?}");
+        return;
+      }
+    };
+
+    let config = RenderConfig { width: self.config.width, height: self.config.height };
+    let view = &self.handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let mut renderer = vello::Renderer::new(&self.handle.device, vello::RendererOptions::default())
+      .expect("Failed to create renderer");
+
+    renderer
+      .render_to_texture(
+        &self.handle.device,
+        &self.handle.queue,
+        &render.scene,
+        &view,
+        &vello::RenderParams {
+          base_color:          render.background,
+          width:               config.width,
+          height:              config.height,
+          antialiasing_method: vello::AaConfig::Msaa16,
+        },
+      )
+      .expect("Failed to render to a texture");
+
+    let mut encoder = self
+      .handle
+      .device
+      .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") });
+
+    encoder.copy_texture_to_texture(
+      wgpu::TexelCopyTextureInfo {
+        texture:   &self.handle.texture,
+        mip_level: 0,
+        origin:    wgpu::Origin3d::ZERO,
+        aspect:    wgpu::TextureAspect::All,
+      },
+      wgpu::TexelCopyTextureInfo {
+        texture:   &frame.texture,
+        mip_level: 0,
+        origin:    wgpu::Origin3d::ZERO,
+        aspect:    wgpu::TextureAspect::All,
+      },
+      config.extent_3d(),
+    );
+
+    self.handle.queue.submit(std::iter::once(encoder.finish()));
+
+    frame.present();
   }
 }
