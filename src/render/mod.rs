@@ -24,11 +24,10 @@ pub(crate) struct Render {
 }
 
 struct GpuHandle {
-  instance: wgpu::Instance,
-  adapter:  wgpu::Adapter,
-  device:   wgpu::Device,
-  queue:    wgpu::Queue,
-  texture:  wgpu::Texture,
+  adapter: wgpu::Adapter,
+  device:  wgpu::Device,
+  queue:   wgpu::Queue,
+  texture: wgpu::Texture,
 }
 
 struct RenderConfig {
@@ -77,12 +76,7 @@ impl Plot<'_> {
     texture::save(handle, config, path.as_ref());
   }
 
-  pub fn show(&self) {
-    let config = RenderConfig { width: 2048, height: 2048 };
-    let handle = GpuHandle::new(&config, None);
-    self.render(&handle, &config);
-    window::show(handle);
-  }
+  pub fn show(&self) { window::show(self); }
 
   fn render(&self, handle: &GpuHandle, config: &RenderConfig) {
     let mut render = Render::new();
@@ -203,8 +197,12 @@ impl Render {
 }
 
 impl GpuHandle {
-  fn new(config: &RenderConfig, surface: Option<&wgpu::Surface>) -> Self {
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+  fn new(config: &RenderConfig, surface: Option<(wgpu::Instance, &wgpu::Surface)>) -> Self {
+    let (instance, surface) = match surface {
+      Some((instance, surface)) => (instance, Some(surface)),
+      None => (wgpu::Instance::new(&wgpu::InstanceDescriptor::default()), None),
+    };
+
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
       compatible_surface: surface,
       ..Default::default()
@@ -231,7 +229,7 @@ impl GpuHandle {
       view_formats:    &[],
     });
 
-    GpuHandle { instance, adapter, device, queue, texture }
+    GpuHandle { adapter, device, queue, texture }
   }
 }
 

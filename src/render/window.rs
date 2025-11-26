@@ -1,12 +1,19 @@
 use vello::wgpu;
 
-use crate::render::GpuHandle;
+use crate::{
+  Plot,
+  render::{GpuHandle, RenderConfig},
+};
 
-pub fn show(handle: GpuHandle) {
+pub fn show(plot: &Plot) {
   let event_loop = winit::event_loop::EventLoop::new().unwrap();
   event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
-  let mut app = App { surface: None, handle };
+  let mut app = App {
+    plot:    unsafe { std::mem::transmute::<&Plot, &Plot>(plot) },
+    surface: None,
+    handle:  None,
+  };
   event_loop.run_app(&mut app).unwrap();
 
   // FIXME: Ideally, we'd drop this. But dropping it segfaults.
@@ -14,8 +21,11 @@ pub fn show(handle: GpuHandle) {
 }
 
 struct App {
+  // SAFETY: We keep the plot alive for the lifetime of the application.
+  plot: &'static Plot<'static>,
+
   surface: Option<(wgpu::Surface<'static>, wgpu::SurfaceConfiguration)>,
-  handle:  GpuHandle,
+  handle:  Option<GpuHandle>,
 }
 
 impl winit::application::ApplicationHandler for App {
@@ -27,9 +37,12 @@ impl winit::application::ApplicationHandler for App {
       )
       .unwrap();
     let size = window.inner_size();
-    let surface = self.handle.instance.create_surface(window).unwrap();
+    let config = RenderConfig { width: 2048, height: 2048 };
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+    let surface = instance.create_surface(window).unwrap();
+    let handle = GpuHandle::new(&config, Some((instance, &surface)));
 
-    let surface_caps = surface.get_capabilities(&self.handle.adapter);
+    let surface_caps = surface.get_capabilities(&handle.adapter);
     let surface_format =
       surface_caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(surface_caps.formats[0]);
 
@@ -43,9 +56,10 @@ impl winit::application::ApplicationHandler for App {
       view_formats:                  vec![],
       desired_maximum_frame_latency: 2,
     };
-    surface.configure(&self.handle.device, &config);
+    surface.configure(&handle.device, &config);
 
     self.surface = Some((surface, config));
+    self.handle = Some(handle);
   }
 
   fn window_event(
@@ -71,7 +85,7 @@ impl winit::application::ApplicationHandler for App {
           if new_size.width > 0 && new_size.height > 0 {
             config.width = new_size.width;
             config.height = new_size.height;
-            surface.configure(&self.handle.device, &config);
+            surface.configure(&self.handle.as_ref().unwrap().device, &config);
           }
         }
       }
@@ -81,7 +95,7 @@ impl winit::application::ApplicationHandler for App {
           let frame = match surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Lost) => {
-              surface.configure(&self.handle.device, &config);
+              surface.configure(&self.handle.as_ref().unwrap().device, &config);
               return;
             }
             Err(e) => {
@@ -92,10 +106,14 @@ impl winit::application::ApplicationHandler for App {
 
           let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-          let mut encoder =
-            self.handle.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-              label: Some("Render Encoder"),
-            });
+          self.plot.render(
+            self.handle.as_ref().unwrap(),
+            &RenderConfig { width: config.width, height: config.height },
+          );
+
+          let mut encoder = self.handle.as_ref().unwrap().device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") },
+          );
 
           {
             // Clear to a dark gray
@@ -116,7 +134,7 @@ impl winit::application::ApplicationHandler for App {
             });
           }
 
-          self.handle.queue.submit(std::iter::once(encoder.finish()));
+          self.handle.as_ref().unwrap().queue.submit(std::iter::once(encoder.finish()));
 
           frame.present();
         }
