@@ -1911,7 +1911,9 @@ name = "neilplot"
 version = "0.1.0"
 dependencies = [
  "image",
+ "kurbo",
  "parley",
+ "peniko",
  "polars",
  "pollster",
  "vello",

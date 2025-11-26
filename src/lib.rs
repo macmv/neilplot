@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
+use kurbo::{BezPath, Cap, Circle, Line, Point, Stroke};
 use parley::FontWeight;
+use peniko::{Brush, Color};
 use polars::prelude::{AnyValue, Column};
-use vello::{
-  kurbo::{BezPath, Cap, Circle, Line, Point, Stroke},
-  peniko::{Brush, Color},
-};
 
 use crate::render::{Align, DrawText, Render};
 

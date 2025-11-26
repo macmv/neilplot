@@ -1,4 +1,4 @@
-use vello::kurbo::Affine;
+use kurbo::Affine;
 
 #[derive(Clone, Copy)]
 pub struct Bounds {

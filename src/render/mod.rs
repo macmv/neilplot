@@ -1,10 +1,10 @@
 use std::path::Path;
 
+use kurbo::{Affine, Point, Rect, Shape, Size, Stroke};
 use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
+use peniko::{Brush, BrushRef, Color, Fill};
 use vello::{
   Renderer,
-  kurbo::{Affine, Point, Rect, Shape, Size, Stroke},
-  peniko::{Brush, BrushRef, Color, Fill},
   wgpu::{self, TextureDescriptor},
 };
 
