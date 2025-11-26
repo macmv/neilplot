@@ -124,6 +124,11 @@ impl winit::application::ApplicationHandler for App<'_> {
               self.render = Some(Render::new());
             }
             self.render.as_mut().unwrap().scene.reset();
+            self
+              .render
+              .as_mut()
+              .unwrap()
+              .resize(&RenderConfig { width: init.config.width, height: init.config.height });
             self.plot.draw(self.render.as_mut().unwrap());
 
             init

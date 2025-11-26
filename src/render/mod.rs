@@ -80,11 +80,7 @@ impl Plot<'_> {
 
   fn render(&self, handle: &GpuHandle, config: &RenderConfig) {
     let mut render = Render::new();
-    // Everything uses a 1000x1000 coordinate system.
-    render.transform = Affine::scale_non_uniform(
-      f64::from(config.width) / 1000.0,
-      f64::from(config.height) / 1000.0,
-    );
+    render.resize(config);
     self.draw(&mut render);
 
     let view = &handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -193,6 +189,14 @@ impl Render {
           );
       }
     }
+  }
+
+  fn resize(&mut self, config: &RenderConfig) {
+    // Everything uses a 1000x1000 coordinate system.
+    self.transform = Affine::scale_non_uniform(
+      f64::from(config.width) / 1000.0,
+      f64::from(config.height) / 1000.0,
+    );
   }
 }
 
