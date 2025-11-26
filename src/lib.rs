@@ -201,7 +201,9 @@ impl Plot<'_> {
     const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
     const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
 
-    let viewport = Bounds::new(Range::new(0.0, 1000.0), Range::new(1000.0, 0.0)).shrink(80.0);
+    let viewport =
+      Bounds::new(Range::new(0.0, render.size().width), Range::new(render.size().height, 0.0))
+        .shrink(80.0);
 
     if let Some(title) = &self.title {
       render.draw_text(DrawText {

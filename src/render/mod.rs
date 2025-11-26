@@ -119,6 +119,14 @@ impl Render {
     }
   }
 
+  pub fn size(&self) -> Size {
+    if self.config.width < self.config.height {
+      Size::new(1000.0, 1000.0 * f64::from(self.config.height) / f64::from(self.config.width))
+    } else {
+      Size::new(1000.0 * f64::from(self.config.width) / f64::from(self.config.height), 1000.0)
+    }
+  }
+
   pub fn stroke<'a>(
     &mut self,
     shape: &impl Shape,
