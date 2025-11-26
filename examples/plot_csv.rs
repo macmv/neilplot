@@ -11,7 +11,7 @@ fn main() -> PolarsResult<()> {
   plot.y.title("Y Axis").min(0.0);
   plot.series(df.column("a")?, df.column("b")?).line().points();
 
-  plot.save("examples/plot_csv.png");
+  plot.show();
 
   Ok(())
 }
