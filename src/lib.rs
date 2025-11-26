@@ -191,6 +191,8 @@ impl Plot<'_> {
 
     let transform = data_bounds.transform_to(viewport);
 
+    let grid_stroke = Stroke::new(1.0).with_dashes(0.0, vec![2.0, 4.0]);
+
     let ticks = 10;
     let iter = data_bounds.y.nice_ticks(ticks);
     let precision = iter.precision();
@@ -202,6 +204,11 @@ impl Plot<'_> {
         &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.min - 10.0, vy)),
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
+      );
+      render.stroke(
+        &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.max, vy)),
+        &LINE_COLOR,
+        &grid_stroke,
       );
       render.draw_text(DrawText {
         text: &format!("{:.*}", (precision - 3).min(0), y),
@@ -224,6 +231,11 @@ impl Plot<'_> {
         &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.min + 10.0)),
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
+      );
+      render.stroke(
+        &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.max)),
+        &LINE_COLOR,
+        &grid_stroke,
       );
       render.draw_text(DrawText {
         text: &format!("{:.*}", (precision - 3).min(0), x),
