@@ -11,12 +11,18 @@ mod render;
 
 #[derive(Default)]
 pub struct Plot<'a> {
-  title:   Option<String>,
-  x_label: Option<String>,
-  y_label: Option<String>,
-  bounds:  Option<Bounds>,
+  pub x: Axis,
+  pub y: Axis,
+
+  title: Option<String>,
 
   series: Vec<Series<'a>>,
+}
+
+#[derive(Default)]
+pub struct Axis {
+  title: Option<String>,
+  range: Range,
 }
 
 pub struct Series<'a> {
@@ -70,19 +76,28 @@ impl<'a> Plot<'a> {
     self
   }
 
-  pub fn x_label(&mut self, label: &str) -> &mut Self {
-    self.x_label = Some(label.to_string());
-    self
-  }
-
-  pub fn y_label(&mut self, label: &str) -> &mut Self {
-    self.y_label = Some(label.to_string());
-    self
-  }
-
   pub fn series(&mut self, x: &'a Column, y: &'a Column) -> &mut Series<'a> {
     self.series.push(Series::new(x, y));
     self.series.last_mut().unwrap()
+  }
+
+  fn bounds(&self) -> Bounds { Bounds::new(self.x.range, self.y.range) }
+}
+
+impl Axis {
+  pub fn title(&mut self, title: impl Into<String>) -> &mut Self {
+    self.title = Some(title.into());
+    self
+  }
+
+  pub fn min(&mut self, min: f64) -> &mut Self {
+    self.range.min = min;
+    self
+  }
+
+  pub fn max(&mut self, max: f64) -> &mut Self {
+    self.range.max = max;
+    self
   }
 }
 
@@ -142,7 +157,7 @@ impl Plot<'_> {
       });
     }
 
-    if let Some(x_label) = &self.x_label {
+    if let Some(x_label) = &self.x.title {
       render.draw_text(DrawText {
         text: x_label,
         size: 24.0,
@@ -154,7 +169,7 @@ impl Plot<'_> {
       });
     }
 
-    if let Some(y_label) = &self.y_label {
+    if let Some(y_label) = &self.y.title {
       render.draw_text(DrawText {
         text: y_label,
         size: 24.0,
@@ -185,9 +200,11 @@ impl Plot<'_> {
       &border_stroke,
     );
 
-    let data_bounds = self.bounds.unwrap_or_else(|| {
+    let data_bounds = if self.bounds().is_empty() {
       self.series.iter().map(|s| s.bounds).fold(Bounds::empty(), |a, b| a.union(b))
-    });
+    } else {
+      self.bounds()
+    };
 
     let transform = data_bounds.transform_to(viewport);
 
@@ -324,6 +341,12 @@ impl Bounds {
 
     Affine::new([scale_x, 0.0, 0.0, scale_y, translate_x, translate_y])
   }
+
+  fn is_empty(&self) -> bool { self.x.size() == 0.0 && self.y.size() == 0.0 }
+}
+
+impl Default for Range {
+  fn default() -> Self { Range::empty() }
 }
 
 impl Range {
