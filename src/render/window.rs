@@ -47,7 +47,8 @@ impl winit::application::ApplicationHandler for App {
       surface_caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(surface_caps.formats[0]);
 
     let config = wgpu::SurfaceConfiguration {
-      usage:                         wgpu::TextureUsages::RENDER_ATTACHMENT,
+      usage:                         wgpu::TextureUsages::RENDER_ATTACHMENT
+        | wgpu::TextureUsages::COPY_DST,
       format:                        surface_format,
       width:                         size.width.max(1),
       height:                        size.height.max(1),
@@ -92,10 +93,12 @@ impl winit::application::ApplicationHandler for App {
 
       winit::event::WindowEvent::RedrawRequested => {
         if let Some((surface, config)) = &self.surface {
+          let handle = self.handle.as_ref().unwrap();
+
           let frame = match surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Lost) => {
-              surface.configure(&self.handle.as_ref().unwrap().device, &config);
+              surface.configure(&handle.device, &config);
               return;
             }
             Err(e) => {
@@ -104,35 +107,28 @@ impl winit::application::ApplicationHandler for App {
             }
           };
 
-          let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+          let config = RenderConfig { width: config.width, height: config.height };
+          self.plot.render(handle, &config);
 
-          self.plot.render(
-            self.handle.as_ref().unwrap(),
-            &RenderConfig { width: config.width, height: config.height },
+          let mut encoder = handle.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+          });
+
+          encoder.copy_texture_to_texture(
+            wgpu::TexelCopyTextureInfo {
+              texture:   &handle.texture,
+              mip_level: 0,
+              origin:    wgpu::Origin3d::ZERO,
+              aspect:    wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyTextureInfo {
+              texture:   &frame.texture,
+              mip_level: 0,
+              origin:    wgpu::Origin3d::ZERO,
+              aspect:    wgpu::TextureAspect::All,
+            },
+            config.extent_3d(),
           );
-
-          let mut encoder = self.handle.as_ref().unwrap().device.create_command_encoder(
-            &wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") },
-          );
-
-          {
-            // Clear to a dark gray
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-              label:                    Some("Render Pass"),
-              color_attachments:        &[Some(wgpu::RenderPassColorAttachment {
-                view:           &view,
-                resolve_target: None,
-                ops:            wgpu::Operations {
-                  load:  wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.1, b: 0.15, a: 1.0 }),
-                  store: wgpu::StoreOp::Discard,
-                },
-                depth_slice:    None,
-              })],
-              depth_stencil_attachment: None,
-              occlusion_query_set:      None,
-              timestamp_writes:         None,
-            });
-          }
 
           self.handle.as_ref().unwrap().queue.submit(std::iter::once(encoder.finish()));
 
