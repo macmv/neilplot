@@ -81,16 +81,20 @@ impl<'a> Plot<'a> {
 
 impl<'a> Series<'a> {
   fn new(x: &'a Column, y: &'a Column) -> Self {
-    let x_min = x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
-    let x_max = x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
-    let y_min = y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
-    let y_max = y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap();
+    let x_range = Range::new(
+      x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+    );
+    let y_range = Range::new(
+      y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+    );
 
     Series {
       x,
       y,
-      x_range: Range::new(x_min - 0.1 * (x_max - x_min), x_max + 0.1 * (x_max - x_min)),
-      y_range: Range::new(y_min - 0.1 * (y_max - y_min), y_max + 0.1 * (y_max - y_min)),
+      x_range: x_range.expanded_by(0.1),
+      y_range: y_range.expanded_by(0.1),
       line: Some(SeriesLine::default()),
       points: None,
     }
@@ -262,5 +266,10 @@ impl Series<'_> {
 }
 
 impl Range {
-  pub fn new(min: f64, max: f64) -> Self { Range { min, max } }
+  pub const fn new(min: f64, max: f64) -> Self { Range { min, max } }
+  pub const fn size(&self) -> f64 { self.max - self.min }
+
+  pub const fn expanded_by(self, fract: f64) -> Self {
+    Range { min: self.min - self.size() * fract, max: self.max + self.size() * fract }
+  }
 }
