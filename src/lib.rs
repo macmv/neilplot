@@ -19,12 +19,16 @@ pub struct Plot<'a> {
 }
 
 pub struct Series<'a> {
-  x:       &'a Column,
-  y:       &'a Column,
-  x_range: Range,
-  y_range: Range,
-  line:    Option<SeriesLine>,
-  points:  Option<SeriesPoints>,
+  x:      &'a Column,
+  y:      &'a Column,
+  bounds: Bounds,
+  line:   Option<SeriesLine>,
+  points: Option<SeriesPoints>,
+}
+
+pub struct Bounds {
+  pub x: Range,
+  pub y: Range,
 }
 
 pub struct Range {
@@ -93,27 +97,26 @@ impl<'a> Series<'a> {
     Series {
       x,
       y,
-      x_range: x_range.expanded_by(0.1),
-      y_range: y_range.expanded_by(0.1),
+      bounds: Bounds::new(x_range, y_range).expanded_by(0.1),
       line: Some(SeriesLine::default()),
       points: None,
     }
   }
 
   pub fn x_min(&mut self, min: f64) -> &mut Self {
-    self.x_range.min = min;
+    self.bounds.x.min = min;
     self
   }
   pub fn x_max(&mut self, max: f64) -> &mut Self {
-    self.x_range.max = max;
+    self.bounds.x.max = max;
     self
   }
   pub fn y_min(&mut self, min: f64) -> &mut Self {
-    self.y_range.min = min;
+    self.bounds.y.min = min;
     self
   }
   pub fn y_max(&mut self, max: f64) -> &mut Self {
-    self.y_range.max = max;
+    self.bounds.y.max = max;
     self
   }
 
@@ -187,10 +190,10 @@ impl Plot<'_> {
     );
 
     let ticks = 10;
-    let iter = self.series[0].y_range.nice_ticks(ticks);
+    let iter = self.series[0].bounds.y.nice_ticks(ticks);
     let precision = iter.precision();
     for (y, vy) in iter
-      .map(|v| (v, transform(v, &self.series[0].y_range, &viewport_y)))
+      .map(|v| (v, transform(v, &self.series[0].bounds.y, &viewport_y)))
       .filter(|(_, vy)| viewport_y.contains(vy))
     {
       render.stroke(
@@ -209,10 +212,10 @@ impl Plot<'_> {
       });
     }
 
-    let iter = self.series[0].x_range.nice_ticks(ticks);
+    let iter = self.series[0].bounds.x.nice_ticks(ticks);
     let precision = iter.precision();
     for (x, vx) in iter
-      .map(|v| (v, transform(v, &self.series[0].x_range, &viewport_x)))
+      .map(|v| (v, transform(v, &self.series[0].bounds.x, &viewport_x)))
       .filter(|(_, vx)| viewport_x.contains(vx))
     {
       render.stroke(
@@ -266,8 +269,8 @@ impl Series<'_> {
       let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
       let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
 
-      let x = 50.0 + ((x - self.x_range.min) * 900.0 / (self.x_range.max - self.x_range.min));
-      let y = 950.0 - ((y - self.y_range.min) * 900.0 / (self.y_range.max - self.y_range.min));
+      let x = 50.0 + ((x - self.bounds.x.min) * 900.0 / (self.bounds.x.max - self.bounds.x.min));
+      let y = 950.0 - ((y - self.bounds.y.min) * 900.0 / (self.bounds.y.max - self.bounds.y.min));
 
       Point::new(x, y)
     })
@@ -276,6 +279,14 @@ impl Series<'_> {
 
 fn transform(value: f64, from_range: &Range, to_range: &Range) -> f64 {
   to_range.min + (value - from_range.min) * to_range.size() / from_range.size()
+}
+
+impl Bounds {
+  pub const fn new(x: Range, y: Range) -> Self { Bounds { x, y } }
+
+  pub const fn expanded_by(self, fract: f64) -> Self {
+    Bounds { x: self.x.expanded_by(fract), y: self.y.expanded_by(fract) }
+  }
 }
 
 impl Range {
