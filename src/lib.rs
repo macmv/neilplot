@@ -201,9 +201,10 @@ impl Plot<'_> {
     const TEXT_COLOR: Brush = Brush::Solid(Color::from_rgb8(32, 32, 32));
     const LINE_COLOR: Brush = Brush::Solid(Color::from_rgb8(128, 128, 128));
 
-    let viewport =
-      Bounds::new(Range::new(0.0, render.size().width), Range::new(render.size().height, 0.0))
-        .shrink(80.0);
+    let outer =
+      Bounds::new(Range::new(0.0, render.size().width), Range::new(render.size().height, 0.0));
+
+    let viewport = outer.shrink(80.0);
 
     if let Some(title) = &self.title {
       render.draw_text(DrawText {
@@ -211,7 +212,7 @@ impl Plot<'_> {
         size: 32.0,
         weight: FontWeight::BOLD,
         brush: TEXT_COLOR,
-        position: Point { x: 500.0, y: viewport.y.max - 10.0 },
+        position: Point { x: outer.width() / 2.0, y: viewport.y.max - 10.0 },
         horizontal_align: Align::Center,
         vertical_align: Align::End,
         ..Default::default()
@@ -222,7 +223,7 @@ impl Plot<'_> {
       render.draw_text(DrawText {
         text: x_label,
         size: 24.0,
-        position: Point { x: 500.0, y: viewport.y.min + 40.0 },
+        position: Point { x: outer.width() / 2.0, y: viewport.y.min + 40.0 },
         brush: TEXT_COLOR,
         horizontal_align: Align::Center,
         vertical_align: Align::Start,
@@ -234,7 +235,7 @@ impl Plot<'_> {
       render.draw_text(DrawText {
         text: y_label,
         size: 24.0,
-        position: Point { x: viewport.x.min - 40.0, y: 500.0 },
+        position: Point { x: viewport.x.min - 40.0, y: -outer.height() / 2.0 },
         brush: TEXT_COLOR,
         transform: vello::kurbo::Affine::rotate(-std::f64::consts::FRAC_PI_2),
         horizontal_align: Align::Center,

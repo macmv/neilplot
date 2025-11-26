@@ -16,6 +16,9 @@ impl Bounds {
   pub const fn empty() -> Self { Bounds { x: Range::empty(), y: Range::empty() } }
   pub const fn new(x: Range, y: Range) -> Self { Bounds { x, y } }
 
+  pub fn width(&self) -> f64 { self.x.size() }
+  pub fn height(&self) -> f64 { self.y.size() }
+
   pub const fn shrink(self, amount: f64) -> Self {
     Bounds { x: self.x.shrink(amount), y: self.y.shrink(amount) }
   }
