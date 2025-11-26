@@ -25,7 +25,7 @@ pub struct Plot<'a> {
 
 pub struct StrokeStyle {
   stroke: Stroke,
-  brush:  Brush,
+  brush:  Option<Brush>,
 }
 
 #[derive(Default)]
@@ -115,9 +115,7 @@ impl<'a> Plot<'a> {
 }
 
 impl StrokeStyle {
-  fn new(width: f64) -> Self {
-    Self { stroke: Stroke::new(width), brush: Brush::Solid(Color::BLACK) }
-  }
+  fn new(width: f64) -> Self { Self { stroke: Stroke::new(width), brush: None } }
 
   pub fn width(&mut self, width: f64) -> &mut Self {
     self.stroke.width = width;
@@ -228,7 +226,7 @@ impl Plot<'_> {
           Point::new(viewport.x.min, viewport.y.min),
           Point::new(viewport.x.max, viewport.y.min),
         ),
-        &stroke.brush,
+        stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
         &stroke.stroke,
       );
       render.stroke(
@@ -236,7 +234,7 @@ impl Plot<'_> {
           Point::new(viewport.x.min, viewport.y.min),
           Point::new(viewport.x.min, viewport.y.max),
         ),
-        &stroke.brush,
+        stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
         &stroke.stroke,
       );
     }
@@ -261,7 +259,7 @@ impl Plot<'_> {
       if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.max, vy)),
-          &stroke.brush,
+          stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
           &stroke.stroke,
         );
       }
@@ -290,7 +288,7 @@ impl Plot<'_> {
       if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.max)),
-          &stroke.brush,
+          stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
           &stroke.stroke,
         );
       }
