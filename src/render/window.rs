@@ -28,10 +28,17 @@ struct Init {
   surface: wgpu::Surface<'static>,
   config:  wgpu::SurfaceConfiguration,
   handle:  GpuHandle,
+
+  blit:  wgpu::util::TextureBlitter,
+  vello: vello::Renderer,
 }
 
 impl winit::application::ApplicationHandler for App {
   fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+    if self.init.is_some() {
+      return;
+    }
+
     let window = event_loop
       .create_window(
         winit::window::Window::default_attributes()
@@ -61,14 +68,19 @@ impl winit::application::ApplicationHandler for App {
       format:                        surface_format,
       width:                         size.width.max(1),
       height:                        size.height.max(1),
-      present_mode:                  wgpu::PresentMode::Fifo,
+      present_mode:                  wgpu::PresentMode::AutoNoVsync,
       alpha_mode:                    surface_caps.alpha_modes[0],
       view_formats:                  vec![],
       desired_maximum_frame_latency: 2,
     };
     surface.configure(&handle.device, &config);
 
-    self.init = Some(Init { surface, config, handle });
+    let vello = vello::Renderer::new(&handle.device, vello::RendererOptions::default())
+      .expect("Failed to create renderer");
+
+    let blit = wgpu::util::TextureBlitter::new(&handle.device, config.format);
+
+    self.init = Some(Init { surface, config, handle, blit, vello });
   }
 
   fn window_event(
@@ -103,7 +115,7 @@ impl winit::application::ApplicationHandler for App {
       }
 
       winit::event::WindowEvent::RedrawRequested => {
-        if let Some(init) = &self.init {
+        if let Some(init) = &mut self.init {
           init.redraw(&self.render);
         }
       }
@@ -114,7 +126,23 @@ impl winit::application::ApplicationHandler for App {
 }
 
 impl Init {
-  fn redraw(&self, render: &Render) {
+  fn redraw(&mut self, render: &Render) {
+    self
+      .vello
+      .render_to_texture(
+        &self.handle.device,
+        &self.handle.queue,
+        &render.scene,
+        &self.handle.view,
+        &vello::RenderParams {
+          base_color:          render.background,
+          width:               self.config.width,
+          height:              self.config.height,
+          antialiasing_method: vello::AaConfig::Msaa16,
+        },
+      )
+      .expect("Failed to render to a texture");
+
     let frame = match self.surface.get_current_texture() {
       Ok(frame) => frame,
       Err(wgpu::SurfaceError::Lost) => {
@@ -127,39 +155,14 @@ impl Init {
       }
     };
 
-    let config = RenderConfig { width: self.config.width, height: self.config.height };
-    let view = &self.handle.texture.create_view(&wgpu::TextureViewDescriptor::default());
     let surface_view = &frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-    let mut renderer = vello::Renderer::new(&self.handle.device, vello::RendererOptions::default())
-      .expect("Failed to create renderer");
-
-    renderer
-      .render_to_texture(
-        &self.handle.device,
-        &self.handle.queue,
-        &render.scene,
-        &view,
-        &vello::RenderParams {
-          base_color:          render.background,
-          width:               config.width,
-          height:              config.height,
-          antialiasing_method: vello::AaConfig::Msaa16,
-        },
-      )
-      .expect("Failed to render to a texture");
 
     let mut encoder = self
       .handle
       .device
       .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") });
 
-    wgpu::util::TextureBlitter::new(&self.handle.device, self.config.format).copy(
-      &self.handle.device,
-      &mut encoder,
-      &view,
-      &surface_view,
-    );
+    self.blit.copy(&self.handle.device, &mut encoder, &self.handle.view, &surface_view);
 
     self.handle.queue.submit(std::iter::once(encoder.finish()));
 
