@@ -14,6 +14,7 @@ pub struct Plot<'a> {
   title:   Option<String>,
   x_label: Option<String>,
   y_label: Option<String>,
+  bounds:  Option<Bounds>,
 
   series: Vec<Series<'a>>,
 }
@@ -26,6 +27,7 @@ pub struct Series<'a> {
   points: Option<SeriesPoints>,
 }
 
+#[derive(Clone, Copy)]
 pub struct Bounds {
   pub x: Range,
   pub y: Range,
@@ -189,11 +191,15 @@ impl Plot<'_> {
       &border_stroke,
     );
 
+    let data_bounds = self.bounds.unwrap_or_else(|| {
+      self.series.iter().map(|s| s.bounds).fold(Bounds::empty(), |a, b| a.union(b))
+    });
+
     let ticks = 10;
-    let iter = self.series[0].bounds.y.nice_ticks(ticks);
+    let iter = data_bounds.y.nice_ticks(ticks);
     let precision = iter.precision();
     for (y, vy) in iter
-      .map(|v| (v, transform(v, &self.series[0].bounds.y, &viewport.y)))
+      .map(|v| (v, transform(v, &data_bounds.y, &viewport.y)))
       .filter(|(_, vy)| viewport.y.contains(vy))
     {
       render.stroke(
@@ -212,10 +218,10 @@ impl Plot<'_> {
       });
     }
 
-    let iter = self.series[0].bounds.x.nice_ticks(ticks);
+    let iter = data_bounds.x.nice_ticks(ticks);
     let precision = iter.precision();
     for (x, vx) in iter
-      .map(|v| (v, transform(v, &self.series[0].bounds.x, &viewport.x)))
+      .map(|v| (v, transform(v, &data_bounds.x, &viewport.x)))
       .filter(|(_, vx)| viewport.x.contains(vx))
     {
       render.stroke(
@@ -286,6 +292,7 @@ fn transform_point(point: Point, from_bounds: &Bounds, to_bounds: &Bounds) -> Po
 }
 
 impl Bounds {
+  pub const fn empty() -> Self { Bounds { x: Range::empty(), y: Range::empty() } }
   pub const fn new(x: Range, y: Range) -> Self { Bounds { x, y } }
 
   pub const fn shrink(self, amount: f64) -> Self {
@@ -301,9 +308,14 @@ impl Bounds {
   pub const fn expand_by(self, fract: f64) -> Self {
     Bounds { x: self.x.expand_by(fract), y: self.y.expand_by(fract) }
   }
+
+  pub fn union(&self, other: Bounds) -> Bounds {
+    Bounds { x: self.x.union(other.x), y: self.y.union(other.y) }
+  }
 }
 
 impl Range {
+  pub const fn empty() -> Self { Range { min: 0.0, max: 0.0 } }
   pub const fn new(min: f64, max: f64) -> Self { Range { min, max } }
   pub const fn size(&self) -> f64 { self.max - self.min }
 
@@ -319,6 +331,16 @@ impl Range {
 
   pub const fn contains(&self, value: &f64) -> bool {
     (*value >= self.min && *value <= self.max) || (*value <= self.min && *value >= self.max)
+  }
+
+  pub fn union(&self, other: Range) -> Range {
+    if self.size() == 0.0 {
+      other
+    } else if other.size() == 0.0 {
+      *self
+    } else {
+      Range { min: self.min.min(other.min), max: self.max.max(other.max) }
+    }
   }
 
   pub fn nice_ticks(&self, count: u32) -> TicksIter {
