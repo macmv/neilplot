@@ -17,10 +17,14 @@ pub struct Plot<'a> {
   pub x: Axis,
   pub y: Axis,
 
-  grid:  bool,
+  grid:  Option<Stroke>,
   title: Option<String>,
 
   series: Vec<Series<'a>>,
+}
+
+pub struct StrokeBuilder<'a> {
+  stroke: &'a mut Stroke,
 }
 
 #[derive(Default)]
@@ -68,9 +72,9 @@ impl<'a> Plot<'a> {
     self
   }
 
-  pub fn grid(&mut self) -> &mut Self {
-    self.grid = true;
-    self
+  pub fn grid(&mut self) -> StrokeBuilder<'_> {
+    self.grid = Some(Stroke::new(1.0));
+    StrokeBuilder { stroke: self.grid.as_mut().unwrap() }
   }
 
   pub fn series(&mut self, x: &'a Column, y: &'a Column) -> &mut Series<'a> {
@@ -90,6 +94,21 @@ impl<'a> Plot<'a> {
       Range::new(self.x.min.unwrap_or(bounds.x.min), self.x.max.unwrap_or(bounds.x.max)),
       Range::new(self.y.min.unwrap_or(bounds.y.min), self.y.max.unwrap_or(bounds.y.max)),
     )
+  }
+}
+
+impl<'a> StrokeBuilder<'a> {
+  pub fn width(&mut self, width: f64) -> &mut Self {
+    self.stroke.width = width;
+    self
+  }
+
+  pub fn dashed(&mut self) -> &mut Self { self.dash_style(&[4.0]) }
+
+  pub fn dash_style(&mut self, dashes: &[f64]) -> &mut Self {
+    self.stroke.dash_pattern.resize(dashes.len(), 0.0);
+    self.stroke.dash_pattern.copy_from_slice(dashes);
+    self
   }
 }
 
@@ -203,8 +222,6 @@ impl Plot<'_> {
     let data_bounds = self.bounds();
     let transform = data_bounds.transform_to(viewport);
 
-    let grid_stroke = Stroke::new(1.0).with_dashes(0.0, vec![2.0, 4.0]);
-
     let ticks = 10;
     let iter = data_bounds.y.nice_ticks(ticks);
     let precision = iter.precision();
@@ -217,11 +234,11 @@ impl Plot<'_> {
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
-      if self.grid {
+      if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.max, vy)),
           &LINE_COLOR,
-          &grid_stroke,
+          &stroke,
         );
       }
       render.draw_text(DrawText {
@@ -246,11 +263,11 @@ impl Plot<'_> {
         &LINE_COLOR,
         &border_stroke.clone().with_start_cap(Cap::Butt),
       );
-      if self.grid {
+      if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.max)),
           &LINE_COLOR,
-          &grid_stroke,
+          &stroke,
         );
       }
       render.draw_text(DrawText {
