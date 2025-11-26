@@ -1,7 +1,7 @@
 use parley::FontWeight;
 use polars::prelude::Column;
 use vello::{
-  kurbo::{BezPath, Circle, Line, Point, Stroke},
+  kurbo::{BezPath, Cap, Circle, Line, Point, Stroke},
   peniko::{Brush, Color},
 };
 
@@ -167,6 +167,51 @@ impl Plot<'_> {
       &LINE_COLOR,
       &border_stroke,
     );
+
+    let ticks = 10;
+    let step = (self.series[0].x_range.1 - self.series[0].x_range.0) / f64::from(ticks);
+    let k = step.log10().floor();
+    let base = step / 10f64.powf(k);
+
+    let nice_base = match base {
+      b if b < 1.0 => 1.0,
+      b if b < 2.0 => 2.0,
+      b if b < 2.5 => 2.5,
+      b if b < 5.0 => 5.0,
+      _ => 10.0,
+    };
+
+    let step = nice_base * 10f64.powf(k);
+    let lo = (self.series[0].x_range.0 / step).floor() * step;
+    let hi = (self.series[0].x_range.1 / step).ceil() * step;
+
+    let precision = (-k as i32 + 4).max(0) as usize;
+    let round = |v: f64| -> f64 {
+      let p = 10f64.powi(precision as i32);
+      (v * p).round() / p
+    };
+
+    let mut x = lo;
+    while x <= hi + step * 0.5 {
+      let vx = 50.0
+        + ((round(x) - self.series[0].x_range.0) * 900.0
+          / (self.series[0].x_range.1 - self.series[0].x_range.0));
+      render.stroke(
+        &Line::new(Point::new(vx, 950.0), Point::new(vx, 960.0)),
+        &LINE_COLOR,
+        &border_stroke.clone().with_start_cap(Cap::Butt),
+      );
+      render.draw_text(DrawText {
+        text: &format!("{:.*}", precision - 3, round(x)),
+        size: 12.0,
+        position: Point { x: vx, y: 965.0 },
+        brush: TEXT_COLOR,
+        horizontal_align: Align::Center,
+        vertical_align: Align::Start,
+        ..Default::default()
+      });
+      x += step;
+    }
 
     for series in &self.series {
       if let Some(line) = &series.line {
