@@ -213,7 +213,7 @@ impl Plot<'_> {
         );
       }
       render.draw_text(DrawText {
-        text: &format!("{:.*}", (precision - 3).min(0), y),
+        text: &format!("{:.*}", (precision - 3).max(0), y),
         size: 12.0,
         position: Point { x: viewport.x.min - 15.0, y: vy },
         brush: TEXT_COLOR,
@@ -242,7 +242,7 @@ impl Plot<'_> {
         );
       }
       render.draw_text(DrawText {
-        text: &format!("{:.*}", (precision - 3).min(0), x),
+        text: &format!("{:.*}", (precision - 3).max(0), x),
         size: 12.0,
         position: Point { x: vx, y: viewport.y.min + 15.0 },
         brush: TEXT_COLOR,
