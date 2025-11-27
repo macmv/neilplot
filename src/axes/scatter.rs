@@ -24,7 +24,7 @@ pub struct ScatterOptions {
 impl Default for ScatterOptions {
   fn default() -> Self {
     ScatterOptions {
-      size:   5.0,
+      size:   12.0,
       marker: Marker::Circle,
       color:  Brush::Solid(Color::from_rgb8(117, 158, 208)),
     }
@@ -62,6 +62,11 @@ impl<'a> ScatterAxes<'a> {
   ) -> &mut Self {
     self.hue_column = Some(column);
     self.hue_keys = Some(keys.into_iter().map(Into::into).collect::<Vec<_>>());
+    self
+  }
+
+  pub fn marker_size(&mut self, size: f64) -> &mut Self {
+    self.options.size = size;
     self
   }
 
