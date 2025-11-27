@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use kurbo::{BezPath, Cap, Circle, Line, Point, Stroke};
+use kurbo::{Cap, Circle, Line, Point, Stroke};
 use parley::FontWeight;
 use peniko::{Brush, Color};
 use polars::prelude::{AnyValue, Column};
@@ -20,7 +20,7 @@ pub struct Plot<'a> {
   grid:   Option<StrokeStyle>,
   title:  Option<String>,
 
-  series: Vec<Axes<'a>>,
+  axes: Vec<Axes<'a>>,
 }
 
 pub struct StrokeStyle {
@@ -35,36 +35,46 @@ pub struct Axis {
   max:   Option<f64>,
 }
 
-pub struct Axes<'a> {
-  x:      &'a Column,
-  y:      &'a Column,
-  line:   Option<SeriesLine>,
-  points: Option<SeriesPoints>,
+enum Axes<'a> {
+  Scatter(ScatterAxes<'a>),
+  Line(LineAxes<'a>),
+}
+
+pub struct ScatterAxes<'a> {
+  x:       &'a Column,
+  y:       &'a Column,
+  options: ScatterOptions,
 
   hue_column: Option<&'a Column>,
   hue_keys:   Option<Vec<AnyValue<'a>>>,
 }
 
-pub struct SeriesLine {
+pub struct LineAxes<'a> {
+  x:       &'a Column,
+  y:       &'a Column,
+  options: LineOptions,
+}
+
+pub struct ScatterOptions {
+  pub size:  f64,
+  pub color: Brush,
+}
+
+pub struct LineOptions {
   pub width: f64,
   pub color: Brush,
   pub dash:  Option<Vec<f64>>,
 }
 
-pub struct SeriesPoints {
-  pub size:  f64,
-  pub color: Brush,
-}
-
-impl Default for SeriesLine {
+impl Default for LineOptions {
   fn default() -> Self {
-    SeriesLine { width: 2.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)), dash: None }
+    LineOptions { width: 2.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)), dash: None }
   }
 }
 
-impl Default for SeriesPoints {
+impl Default for ScatterOptions {
   fn default() -> Self {
-    SeriesPoints { size: 5.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)) }
+    ScatterOptions { size: 5.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)) }
   }
 }
 
@@ -76,7 +86,7 @@ impl<'a> Plot<'a> {
       border: Some(StrokeStyle::new(1.0)),
       grid:   None,
       title:  None,
-      series: Vec::new(),
+      axes:   Vec::new(),
     }
   }
 
@@ -97,16 +107,22 @@ impl<'a> Plot<'a> {
     self.grid.as_mut().unwrap()
   }
 
-  pub fn axes(&mut self, x: &'a Column, y: &'a Column) -> &mut Axes<'a> {
-    self.series.push(Axes::new(x, y));
-    self.series.last_mut().unwrap()
+  pub fn scatter(&mut self, x: &'a Column, y: &'a Column) -> &mut ScatterAxes<'a> {
+    self.axes.push(Axes::Scatter(ScatterAxes::new(x, y)));
+    match self.axes.last_mut().unwrap() {
+      Axes::Scatter(sa) => sa,
+      _ => unreachable!(),
+    }
   }
 
   fn bounds(&self) -> Bounds {
     let bounds = self
-      .series
+      .axes
       .iter()
-      .map(|s| s.data_bounds())
+      .map(|s| match s {
+        Axes::Scatter(sa) => sa.data_bounds(),
+        Axes::Line(_) => todo!(),
+      })
       .fold(Bounds::empty(), |a, b| a.union(b))
       .expand_by(0.1);
 
@@ -151,9 +167,9 @@ impl Axis {
   }
 }
 
-impl<'a> Axes<'a> {
+impl<'a> ScatterAxes<'a> {
   fn new(x: &'a Column, y: &'a Column) -> Self {
-    Axes { x, y, line: None, points: None, hue_column: None, hue_keys: None }
+    ScatterAxes { x, y, options: ScatterOptions::default(), hue_column: None, hue_keys: None }
   }
 
   pub fn data_bounds(&self) -> Bounds {
@@ -167,16 +183,6 @@ impl<'a> Axes<'a> {
         self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
       ),
     )
-  }
-
-  pub fn line(&mut self) -> &mut Self {
-    self.line = Some(SeriesLine::default());
-    self
-  }
-
-  pub fn points(&mut self) -> &mut Self {
-    self.points = Some(SeriesPoints::default());
-    self
   }
 
   pub fn hue_from(&mut self, column: &'a Column) -> &mut Self {
@@ -327,71 +333,16 @@ impl Plot<'_> {
       });
     }
 
-    for series in &self.series {
-      let unique;
-
-      let hues: Option<HashMap<AnyValue, usize>> = if let Some(order) = &series.hue_keys {
-        Some(order.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect::<HashMap<_, _>>())
-      } else if let Some(hue_column) = &series.hue_column {
-        unique = hue_column.unique_stable().unwrap();
-
-        Some(
-          unique
-            .as_materialized_series()
-            .iter()
-            .enumerate()
-            .map(|(i, v)| (v, i))
-            .collect::<HashMap<_, _>>(),
-        )
-      } else {
-        None
-      };
-
-      if let Some(line) = &series.line {
-        let mut shape = BezPath::new();
-
-        for (i, point) in series.iter().map(|p| transform * p).enumerate() {
-          if i == 0 {
-            shape.move_to(point);
-          } else {
-            shape.line_to(point);
-          }
-        }
-
-        let mut stroke = Stroke::new(line.width);
-        if let Some(dash) = &line.dash {
-          stroke = stroke.with_dashes(0.0, dash.clone());
-        }
-
-        render.stroke(&shape, &line.color, &stroke);
-      }
-
-      let points = if series.points.is_none() && series.line.is_none() {
-        &SeriesPoints::default()
-      } else if let Some(points) = &series.points {
-        points
-      } else {
-        continue;
-      };
-
-      for (i, point) in series.iter().map(|p| transform * p).enumerate() {
-        let color = if let Some(ref hues) = hues {
-          let v = series.hue_column.as_ref().unwrap().get(i).unwrap();
-
-          // TODO: Themes
-          let index = hues.get(&v).copied().unwrap_or(0) as u8;
-          Brush::Solid(Color::from_rgb8(index * 16, 0, 0))
-        } else {
-          points.color.clone()
-        };
-
-        render.fill(&Circle::new(point, points.size), &color);
+    for axes in &self.axes {
+      match axes {
+        Axes::Scatter(sa) => sa.draw(render, transform),
+        Axes::Line(_) => todo!(),
       }
     }
   }
 }
 
-impl Axes<'_> {
+impl ScatterAxes<'_> {
   fn iter<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
     (0..self.x.len()).map(move |i| {
       let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
@@ -399,5 +350,61 @@ impl Axes<'_> {
 
       Point::new(x, y)
     })
+  }
+
+  fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
+    let unique;
+
+    let hues: Option<HashMap<AnyValue, usize>> = if let Some(order) = &self.hue_keys {
+      Some(order.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect::<HashMap<_, _>>())
+    } else if let Some(hue_column) = &self.hue_column {
+      unique = hue_column.unique_stable().unwrap();
+
+      Some(
+        unique
+          .as_materialized_series()
+          .iter()
+          .enumerate()
+          .map(|(i, v)| (v, i))
+          .collect::<HashMap<_, _>>(),
+      )
+    } else {
+      None
+    };
+
+    /*
+    if let Some(line) = &series.line {
+      let mut shape = BezPath::new();
+
+      for (i, point) in series.iter().map(|p| transform * p).enumerate() {
+        if i == 0 {
+          shape.move_to(point);
+        } else {
+          shape.line_to(point);
+        }
+      }
+
+      let mut stroke = Stroke::new(line.width);
+      if let Some(dash) = &line.dash {
+        stroke = stroke.with_dashes(0.0, dash.clone());
+      }
+
+      render.stroke(&shape, &line.color, &stroke);
+    }
+    */
+
+    for (i, point) in self.iter().map(|p| transform * p).enumerate() {
+      let color = if let Some(ref hues) = hues {
+        let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
+
+        // TODO: Themes
+        let index = hues.get(&v).copied().unwrap_or(0) as u8;
+        Brush::Solid(Color::from_rgb8(index * 16, 0, 0))
+      } else {
+        self.options.color.clone()
+      };
+
+      render.fill(&Circle::new(point, self.options.size), &color);
+    }
   }
 }
