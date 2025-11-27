@@ -1,12 +1,13 @@
-use std::collections::HashMap;
-
-use kurbo::{BezPath, Cap, Circle, Line, Point, Stroke};
+use kurbo::{Cap, Line, Point, Stroke};
 use parley::FontWeight;
 use peniko::{Brush, Color};
-use polars::prelude::{AnyValue, Column};
 
-use crate::render::{Align, DrawText, Render};
+use crate::{
+  axes::{Axes, ScatterAxes},
+  render::{Align, DrawText, Render},
+};
 
+mod axes;
 mod bounds;
 mod render;
 
@@ -33,49 +34,6 @@ pub struct Axis {
   title: Option<String>,
   min:   Option<f64>,
   max:   Option<f64>,
-}
-
-enum Axes<'a> {
-  Scatter(ScatterAxes<'a>),
-  Line(LineAxes<'a>),
-}
-
-pub struct ScatterAxes<'a> {
-  x:       &'a Column,
-  y:       &'a Column,
-  options: ScatterOptions,
-
-  hue_column: Option<&'a Column>,
-  hue_keys:   Option<Vec<AnyValue<'a>>>,
-}
-
-pub struct LineAxes<'a> {
-  x:       &'a Column,
-  y:       &'a Column,
-  options: LineOptions,
-}
-
-pub struct ScatterOptions {
-  pub size:  f64,
-  pub color: Brush,
-}
-
-pub struct LineOptions {
-  pub width: f64,
-  pub color: Brush,
-  pub dash:  Option<Vec<f64>>,
-}
-
-impl Default for LineOptions {
-  fn default() -> Self {
-    LineOptions { width: 2.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)), dash: None }
-  }
-}
-
-impl Default for ScatterOptions {
-  fn default() -> Self {
-    ScatterOptions { size: 5.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)) }
-  }
 }
 
 impl<'a> Plot<'a> {
@@ -105,22 +63,6 @@ impl<'a> Plot<'a> {
   pub fn grid(&mut self) -> &mut StrokeStyle {
     self.grid = Some(StrokeStyle::new(1.0));
     self.grid.as_mut().unwrap()
-  }
-
-  pub fn scatter(&mut self, x: &'a Column, y: &'a Column) -> &mut ScatterAxes<'a> {
-    self.axes.push(Axes::Scatter(ScatterAxes::new(x, y)));
-    match self.axes.last_mut().unwrap() {
-      Axes::Scatter(sa) => sa,
-      _ => unreachable!(),
-    }
-  }
-
-  pub fn line(&mut self, x: &'a Column, y: &'a Column) -> &mut LineAxes<'a> {
-    self.axes.push(Axes::Line(LineAxes::new(x, y)));
-    match self.axes.last_mut().unwrap() {
-      Axes::Line(sa) => sa,
-      _ => unreachable!(),
-    }
   }
 
   fn bounds(&self) -> Bounds {
@@ -175,59 +117,7 @@ impl Axis {
   }
 }
 
-impl<'a> ScatterAxes<'a> {
-  fn new(x: &'a Column, y: &'a Column) -> Self {
-    ScatterAxes { x, y, options: ScatterOptions::default(), hue_column: None, hue_keys: None }
-  }
-
-  pub fn data_bounds(&self) -> Bounds {
-    Bounds::new(
-      Range::new(
-        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-      Range::new(
-        self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-    )
-  }
-
-  pub fn hue_from(&mut self, column: &'a Column) -> &mut Self {
-    self.hue_column = Some(column);
-    self.hue_keys = None;
-    self
-  }
-
-  pub fn hue_from_keys<T: Into<AnyValue<'a>>>(
-    &mut self,
-    column: &'a Column,
-    keys: impl IntoIterator<Item = T>,
-  ) -> &mut Self {
-    self.hue_column = Some(column);
-    self.hue_keys = Some(keys.into_iter().map(Into::into).collect::<Vec<_>>());
-    self
-  }
-}
-
-impl<'a> LineAxes<'a> {
-  fn new(x: &'a Column, y: &'a Column) -> Self {
-    LineAxes { x, y, options: LineOptions::default() }
-  }
-
-  pub fn data_bounds(&self) -> Bounds {
-    Bounds::new(
-      Range::new(
-        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-      Range::new(
-        self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-    )
-  }
-}
+impl<'a> ScatterAxes<'a> {}
 
 impl Plot<'_> {
   fn draw(&self, render: &mut Render) {
@@ -366,81 +256,5 @@ impl Plot<'_> {
         Axes::Line(la) => la.draw(render, transform),
       }
     }
-  }
-}
-
-impl ScatterAxes<'_> {
-  fn iter<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
-    (0..self.x.len()).map(move |i| {
-      let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
-      let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
-
-      Point::new(x, y)
-    })
-  }
-
-  fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
-    let unique;
-
-    let hues: Option<HashMap<AnyValue, usize>> = if let Some(order) = &self.hue_keys {
-      Some(order.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect::<HashMap<_, _>>())
-    } else if let Some(hue_column) = &self.hue_column {
-      unique = hue_column.unique_stable().unwrap();
-
-      Some(
-        unique
-          .as_materialized_series()
-          .iter()
-          .enumerate()
-          .map(|(i, v)| (v, i))
-          .collect::<HashMap<_, _>>(),
-      )
-    } else {
-      None
-    };
-
-    for (i, point) in self.iter().map(|p| transform * p).enumerate() {
-      let color = if let Some(ref hues) = hues {
-        let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
-
-        // TODO: Themes
-        let index = hues.get(&v).copied().unwrap_or(0) as u8;
-        Brush::Solid(Color::from_rgb8(index * 16, 0, 0))
-      } else {
-        self.options.color.clone()
-      };
-
-      render.fill(&Circle::new(point, self.options.size), &color);
-    }
-  }
-}
-
-impl LineAxes<'_> {
-  fn iter<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
-    (0..self.x.len()).map(move |i| {
-      let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
-      let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
-
-      Point::new(x, y)
-    })
-  }
-
-  fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
-    let mut shape = BezPath::new();
-
-    for (i, point) in self.iter().map(|p| transform * p).enumerate() {
-      if i == 0 {
-        shape.move_to(point);
-      } else {
-        shape.line_to(point);
-      }
-    }
-
-    let mut stroke = Stroke::new(self.options.width);
-    if let Some(dash) = &self.options.dash {
-      stroke = stroke.with_dashes(0.0, dash.clone());
-    }
-
-    render.stroke(&shape, &self.options.color, &stroke);
   }
 }
