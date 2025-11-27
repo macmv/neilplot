@@ -73,7 +73,7 @@ impl Default for DrawText<'_> {
 impl Plot<'_> {
   pub fn save(&self, path: impl AsRef<Path>) {
     let config = RenderConfig { width: 2048, height: 2048 };
-    let handle = GpuHandle::new(&config, None);
+    let handle = GpuHandle::new(&config);
     self.render(&handle, config);
     texture::save(handle, config, path.as_ref());
   }
@@ -215,17 +215,11 @@ impl Render {
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 impl GpuHandle {
-  fn new(config: &RenderConfig, adapter: Option<wgpu::Adapter>) -> Self {
-    let adapter = match adapter {
-      Some(adapter) => adapter,
-      None => {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-        let adapter =
-          pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
-            .expect("Failed to create adapter");
-        adapter
-      }
-    };
+  fn new(config: &RenderConfig) -> Self {
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+    let adapter =
+      pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+        .expect("Failed to create adapter");
 
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
       label:             None,
@@ -251,22 +245,6 @@ impl GpuHandle {
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
     GpuHandle { device, queue, texture, view }
-  }
-
-  fn resize(&mut self, config: &RenderConfig) {
-    self.texture = self.device.create_texture(&TextureDescriptor {
-      label:           Some("Render Texture"),
-      size:            config.extent_3d(),
-      mip_level_count: 1,
-      sample_count:    1,
-      dimension:       wgpu::TextureDimension::D2,
-      format:          FORMAT,
-      usage:           wgpu::TextureUsages::STORAGE_BINDING
-        | wgpu::TextureUsages::COPY_SRC
-        | wgpu::TextureUsages::TEXTURE_BINDING,
-      view_formats:    &[],
-    });
-    self.view = self.texture.create_view(&wgpu::TextureViewDescriptor::default());
   }
 }
 
