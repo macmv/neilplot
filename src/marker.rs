@@ -122,7 +122,21 @@ impl Marker {
         path.close_path();
         path
       }
-      _ => todo!(),
+      Marker::Octagon => {
+        const OFFSET: f64 = (std::f64::consts::SQRT_2 - 1.0) / 2.0;
+
+        let mut path = BezPath::new();
+        path.move_to(Point::new(-OFFSET, -0.5));
+        path.line_to(Point::new(OFFSET, -0.5));
+        path.line_to(Point::new(0.5, -OFFSET));
+        path.line_to(Point::new(0.5, OFFSET));
+        path.line_to(Point::new(OFFSET, 0.5));
+        path.line_to(Point::new(-OFFSET, 0.5));
+        path.line_to(Point::new(-0.5, OFFSET));
+        path.line_to(Point::new(-0.5, -OFFSET));
+        path.close_path();
+        path
+      }
     }
   }
 }
