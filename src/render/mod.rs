@@ -28,7 +28,6 @@ struct GpuHandle {
   device:  wgpu::Device,
   queue:   wgpu::Queue,
   texture: wgpu::Texture,
-  view:    wgpu::TextureView,
 }
 
 #[derive(Clone, Copy)]
@@ -242,9 +241,8 @@ impl GpuHandle {
         | wgpu::TextureUsages::TEXTURE_BINDING,
       view_formats:    &[],
     });
-    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    GpuHandle { device, queue, texture, view }
+    GpuHandle { device, queue, texture }
   }
 }
 
