@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use kurbo::{Circle, Point};
+use kurbo::{Affine, Point};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
-use crate::{Bounds, Range, render::Render};
+use crate::{Bounds, Marker, Range, render::Render};
 
 pub struct ScatterAxes<'a> {
   x:       &'a Column,
@@ -16,13 +16,18 @@ pub struct ScatterAxes<'a> {
 }
 
 pub struct ScatterOptions {
-  pub size:  f64,
-  pub color: Brush,
+  pub size:   f64,
+  pub marker: Marker,
+  pub color:  Brush,
 }
 
 impl Default for ScatterOptions {
   fn default() -> Self {
-    ScatterOptions { size: 5.0, color: Brush::Solid(Color::from_rgb8(117, 158, 208)) }
+    ScatterOptions {
+      size:   5.0,
+      marker: Marker::Circle,
+      color:  Brush::Solid(Color::from_rgb8(117, 158, 208)),
+    }
   }
 }
 
@@ -60,6 +65,11 @@ impl<'a> ScatterAxes<'a> {
     self
   }
 
+  pub fn marker(&mut self, marker: Marker) -> &mut Self {
+    self.options.marker = marker;
+    self
+  }
+
   fn iter<'b>(&'b self) -> impl Iterator<Item = Point> + 'b {
     (0..self.x.len()).map(move |i| {
       let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
@@ -89,6 +99,8 @@ impl<'a> ScatterAxes<'a> {
       None
     };
 
+    let shape = self.options.marker.to_path(0.1);
+
     for (i, point) in self.iter().map(|p| transform * p).enumerate() {
       let color = if let Some(ref hues) = hues {
         let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
@@ -100,7 +112,7 @@ impl<'a> ScatterAxes<'a> {
         self.options.color.clone()
       };
 
-      render.fill(&Circle::new(point, self.options.size), &color);
+      render.fill(&shape, Affine::scale(self.options.size).then_translate(point.to_vec2()), &color);
     }
   }
 }

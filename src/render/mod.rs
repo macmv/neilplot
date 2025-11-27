@@ -135,8 +135,13 @@ impl Render {
     self.scene.stroke(stroke, self.transform, brush, None, shape);
   }
 
-  pub fn fill<'a>(&mut self, shape: &impl Shape, brush: impl Into<BrushRef<'a>>) {
-    self.scene.fill(Fill::NonZero, self.transform, brush, None, shape);
+  pub fn fill<'a>(
+    &mut self,
+    shape: &impl Shape,
+    transform: Affine,
+    brush: impl Into<BrushRef<'a>>,
+  ) {
+    self.scene.fill(Fill::NonZero, self.transform * transform, brush, None, shape);
   }
 
   pub fn draw_text(&mut self, text: DrawText<'_>) {

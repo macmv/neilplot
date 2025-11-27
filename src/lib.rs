@@ -9,9 +9,11 @@ use crate::{
 
 mod axes;
 mod bounds;
+mod marker;
 mod render;
 
 pub use bounds::{Bounds, Range};
+pub use marker::Marker;
 
 pub struct Plot<'a> {
   pub x: Axis,
