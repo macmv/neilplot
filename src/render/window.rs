@@ -1,4 +1,7 @@
-use vello::wgpu;
+use vello::{
+  util::{RenderContext, RenderSurface},
+  wgpu,
+};
 
 use crate::{
   Plot,
@@ -25,11 +28,10 @@ struct App<'a> {
 }
 
 struct Init {
-  surface: wgpu::Surface<'static>,
-  config:  wgpu::SurfaceConfiguration,
+  cx:      RenderContext,
+  surface: RenderSurface<'static>,
   handle:  GpuHandle,
 
-  blit:  wgpu::util::TextureBlitter,
   vello: vello::Renderer,
 }
 
@@ -46,41 +48,30 @@ impl winit::application::ApplicationHandler for App<'_> {
       )
       .unwrap();
     let size = window.inner_size();
-    let config = RenderConfig { width: 2048, height: 2048 };
+    let config = RenderConfig { width: size.width, height: size.height };
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-    let surface = instance.create_surface(window).unwrap();
+
+    let mut cx = RenderContext::new();
+    let surface = pollster::block_on(cx.create_surface(
+      window,
+      size.width,
+      size.height,
+      wgpu::PresentMode::AutoNoVsync,
+    ))
+    .unwrap();
 
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-      compatible_surface: Some(&surface),
+      compatible_surface: Some(&surface.surface),
       ..Default::default()
     }))
     .expect("Failed to create adapter");
 
-    let surface_caps = surface.get_capabilities(&adapter);
-    let surface_format =
-      surface_caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(surface_caps.formats[0]);
-
     let handle = GpuHandle::new(&config, Some(adapter));
-
-    let config = wgpu::SurfaceConfiguration {
-      usage:                         wgpu::TextureUsages::RENDER_ATTACHMENT
-        | wgpu::TextureUsages::COPY_DST,
-      format:                        surface_format,
-      width:                         size.width.max(1),
-      height:                        size.height.max(1),
-      present_mode:                  wgpu::PresentMode::AutoNoVsync,
-      alpha_mode:                    surface_caps.alpha_modes[0],
-      view_formats:                  vec![],
-      desired_maximum_frame_latency: 2,
-    };
-    surface.configure(&handle.device, &config);
 
     let vello = vello::Renderer::new(&handle.device, vello::RendererOptions::default())
       .expect("Failed to create renderer");
 
-    let blit = wgpu::util::TextureBlitter::new(&handle.device, config.format);
-
-    self.init = Some(Init { surface, config, handle, blit, vello });
+    self.init = Some(Init { cx, surface, handle, vello });
   }
 
   fn window_event(
@@ -104,12 +95,7 @@ impl winit::application::ApplicationHandler for App<'_> {
       winit::event::WindowEvent::Resized(new_size) => {
         if let Some(init) = &mut self.init {
           if new_size.width > 0 && new_size.height > 0 {
-            init.config.width = new_size.width;
-            init.config.height = new_size.height;
-            init
-              .handle
-              .resize(&RenderConfig { width: init.config.width, height: init.config.height });
-            init.surface.configure(&init.handle.device, &init.config);
+            init.cx.resize_surface(&mut init.surface, new_size.width, new_size.height);
 
             self.stale = true;
           }
@@ -124,11 +110,10 @@ impl winit::application::ApplicationHandler for App<'_> {
               self.render = Some(Render::new());
             }
             self.render.as_mut().unwrap().scene.reset();
-            self
-              .render
-              .as_mut()
-              .unwrap()
-              .resize(RenderConfig { width: init.config.width, height: init.config.height });
+            self.render.as_mut().unwrap().resize(RenderConfig {
+              width:  init.surface.config.width,
+              height: init.surface.config.height,
+            });
             self.plot.draw(self.render.as_mut().unwrap());
 
             init
@@ -140,8 +125,8 @@ impl winit::application::ApplicationHandler for App<'_> {
                 &init.handle.view,
                 &vello::RenderParams {
                   base_color:          self.render.as_ref().unwrap().background,
-                  width:               init.config.width,
-                  height:              init.config.height,
+                  width:               init.surface.config.width,
+                  height:              init.surface.config.height,
                   antialiasing_method: vello::AaConfig::Msaa16,
                 },
               )
@@ -158,10 +143,10 @@ impl winit::application::ApplicationHandler for App<'_> {
 
 impl Init {
   fn redraw(&mut self) {
-    let frame = match self.surface.get_current_texture() {
+    let frame = match self.surface.surface.get_current_texture() {
       Ok(frame) => frame,
       Err(wgpu::SurfaceError::Lost) => {
-        self.surface.configure(&self.handle.device, &self.config);
+        // self.surface.configure(&self.handle.device, &self.config);
         return;
       }
       Err(e) => {
@@ -177,7 +162,7 @@ impl Init {
       .device
       .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") });
 
-    self.blit.copy(&self.handle.device, &mut encoder, &self.handle.view, &surface_view);
+    self.surface.blitter.copy(&self.handle.device, &mut encoder, &self.handle.view, &surface_view);
 
     self.handle.queue.submit(std::iter::once(encoder.finish()));
 
