@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use kurbo::{Cap, Circle, Line, Point, Stroke};
+use kurbo::{BezPath, Cap, Circle, Line, Point, Stroke};
 use parley::FontWeight;
 use peniko::{Brush, Color};
 use polars::prelude::{AnyValue, Column};
@@ -115,13 +115,21 @@ impl<'a> Plot<'a> {
     }
   }
 
+  pub fn line(&mut self, x: &'a Column, y: &'a Column) -> &mut LineAxes<'a> {
+    self.axes.push(Axes::Line(LineAxes::new(x, y)));
+    match self.axes.last_mut().unwrap() {
+      Axes::Line(sa) => sa,
+      _ => unreachable!(),
+    }
+  }
+
   fn bounds(&self) -> Bounds {
     let bounds = self
       .axes
       .iter()
       .map(|s| match s {
         Axes::Scatter(sa) => sa.data_bounds(),
-        Axes::Line(_) => todo!(),
+        Axes::Line(la) => la.data_bounds(),
       })
       .fold(Bounds::empty(), |a, b| a.union(b))
       .expand_by(0.1);
@@ -199,6 +207,25 @@ impl<'a> ScatterAxes<'a> {
     self.hue_column = Some(column);
     self.hue_keys = Some(keys.into_iter().map(Into::into).collect::<Vec<_>>());
     self
+  }
+}
+
+impl<'a> LineAxes<'a> {
+  fn new(x: &'a Column, y: &'a Column) -> Self {
+    LineAxes { x, y, options: LineOptions::default() }
+  }
+
+  pub fn data_bounds(&self) -> Bounds {
+    Bounds::new(
+      Range::new(
+        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      ),
+      Range::new(
+        self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+      ),
+    )
   }
 }
 
@@ -336,7 +363,7 @@ impl Plot<'_> {
     for axes in &self.axes {
       match axes {
         Axes::Scatter(sa) => sa.draw(render, transform),
-        Axes::Line(_) => todo!(),
+        Axes::Line(la) => la.draw(render, transform),
       }
     }
   }
@@ -372,27 +399,6 @@ impl ScatterAxes<'_> {
       None
     };
 
-    /*
-    if let Some(line) = &series.line {
-      let mut shape = BezPath::new();
-
-      for (i, point) in series.iter().map(|p| transform * p).enumerate() {
-        if i == 0 {
-          shape.move_to(point);
-        } else {
-          shape.line_to(point);
-        }
-      }
-
-      let mut stroke = Stroke::new(line.width);
-      if let Some(dash) = &line.dash {
-        stroke = stroke.with_dashes(0.0, dash.clone());
-      }
-
-      render.stroke(&shape, &line.color, &stroke);
-    }
-    */
-
     for (i, point) in self.iter().map(|p| transform * p).enumerate() {
       let color = if let Some(ref hues) = hues {
         let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
@@ -406,5 +412,35 @@ impl ScatterAxes<'_> {
 
       render.fill(&Circle::new(point, self.options.size), &color);
     }
+  }
+}
+
+impl LineAxes<'_> {
+  fn iter<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
+    (0..self.x.len()).map(move |i| {
+      let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
+      let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
+
+      Point::new(x, y)
+    })
+  }
+
+  fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
+    let mut shape = BezPath::new();
+
+    for (i, point) in self.iter().map(|p| transform * p).enumerate() {
+      if i == 0 {
+        shape.move_to(point);
+      } else {
+        shape.line_to(point);
+      }
+    }
+
+    let mut stroke = Stroke::new(self.options.width);
+    if let Some(dash) = &self.options.dash {
+      stroke = stroke.with_dashes(0.0, dash.clone());
+    }
+
+    render.stroke(&shape, &self.options.color, &stroke);
   }
 }

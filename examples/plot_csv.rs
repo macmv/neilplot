@@ -10,6 +10,7 @@ fn main() -> PolarsResult<()> {
   plot.x.title("X Axis");
   plot.y.title("Y Axis").min(0.0);
   plot.scatter(df.column("a")?, df.column("b")?);
+  plot.line(df.column("a")?, df.column("b")?);
 
   plot.show();
 
