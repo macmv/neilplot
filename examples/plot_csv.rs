@@ -9,7 +9,7 @@ fn main() -> PolarsResult<()> {
   plot.title("Foo");
   plot.x.title("X Axis");
   plot.y.title("Y Axis").min(0.0);
-  plot.series(df.column("a")?, df.column("b")?).line().points();
+  plot.axes(df.column("a")?, df.column("b")?).line().points();
 
   plot.show();
 

@@ -20,7 +20,7 @@ pub struct Plot<'a> {
   grid:   Option<StrokeStyle>,
   title:  Option<String>,
 
-  series: Vec<Series<'a>>,
+  series: Vec<Axes<'a>>,
 }
 
 pub struct StrokeStyle {
@@ -35,7 +35,7 @@ pub struct Axis {
   max:   Option<f64>,
 }
 
-pub struct Series<'a> {
+pub struct Axes<'a> {
   x:      &'a Column,
   y:      &'a Column,
   line:   Option<SeriesLine>,
@@ -97,8 +97,8 @@ impl<'a> Plot<'a> {
     self.grid.as_mut().unwrap()
   }
 
-  pub fn series(&mut self, x: &'a Column, y: &'a Column) -> &mut Series<'a> {
-    self.series.push(Series::new(x, y));
+  pub fn axes(&mut self, x: &'a Column, y: &'a Column) -> &mut Axes<'a> {
+    self.series.push(Axes::new(x, y));
     self.series.last_mut().unwrap()
   }
 
@@ -151,9 +151,9 @@ impl Axis {
   }
 }
 
-impl<'a> Series<'a> {
+impl<'a> Axes<'a> {
   fn new(x: &'a Column, y: &'a Column) -> Self {
-    Series { x, y, line: None, points: None, hue_column: None, hue_keys: None }
+    Axes { x, y, line: None, points: None, hue_column: None, hue_keys: None }
   }
 
   pub fn data_bounds(&self) -> Bounds {
@@ -391,7 +391,7 @@ impl Plot<'_> {
   }
 }
 
-impl Series<'_> {
+impl Axes<'_> {
   fn iter<'a>(&'a self) -> impl Iterator<Item = Point> + 'a {
     (0..self.x.len()).map(move |i| {
       let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
