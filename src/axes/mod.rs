@@ -1,6 +1,8 @@
+mod histogram;
 mod line;
 mod scatter;
 
+pub use histogram::HistogramAxes;
 pub use line::LineAxes;
 pub use scatter::ScatterAxes;
 
@@ -10,20 +12,23 @@ use polars::prelude::*;
 pub enum Axes<'a> {
   Scatter(ScatterAxes<'a>),
   Line(LineAxes<'a>),
+  Histogram(HistogramAxes<'a>),
 }
 
 impl Axes<'_> {
-  pub fn data_bounds(&self) -> crate::Bounds {
+  pub fn data_bounds(&self) -> Option<crate::Bounds> {
     match self {
-      Axes::Scatter(sa) => sa.data_bounds(),
-      Axes::Line(la) => la.data_bounds(),
+      Axes::Scatter(a) => Some(a.data_bounds()),
+      Axes::Line(a) => Some(a.data_bounds()),
+      Axes::Histogram(_) => None,
     }
   }
 
   pub fn draw(&self, render: &mut crate::render::Render, transform: vello::kurbo::Affine) {
     match self {
-      Axes::Scatter(sa) => sa.draw(render, transform),
-      Axes::Line(la) => la.draw(render, transform),
+      Axes::Scatter(a) => a.draw(render, transform),
+      Axes::Line(a) => a.draw(render, transform),
+      Axes::Histogram(a) => a.draw(render, transform),
     }
   }
 }
@@ -41,6 +46,14 @@ impl<'a> Plot<'a> {
     self.axes.push(Axes::Line(LineAxes::new(x, y)));
     match self.axes.last_mut().unwrap() {
       Axes::Line(sa) => sa,
+      _ => unreachable!(),
+    }
+  }
+
+  pub fn histogram(&mut self, counts: &'a Column) -> &mut HistogramAxes<'a> {
+    self.axes.push(Axes::Histogram(HistogramAxes::new(counts)));
+    match self.axes.last_mut().unwrap() {
+      Axes::Histogram(sa) => sa,
       _ => unreachable!(),
     }
   }

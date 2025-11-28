@@ -73,7 +73,7 @@ impl<'a> Plot<'a> {
     let bounds = self
       .axes
       .iter()
-      .map(|s| s.data_bounds())
+      .filter_map(|s| s.data_bounds())
       .fold(Bounds::empty(), |a, b| a.union(b))
       .expand_by(0.1);
 
