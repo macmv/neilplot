@@ -8,7 +8,10 @@ image = "0.25.9"
 kurbo = "0.12.0"
 parley = "0.7.0"
 peniko = "0.5.0"
-polars = "0.52"
+polars = { version = "0.52", default-features = false }
 pollster = "0.4.0"
 vello = "0.6.0"
 winit = "0.30.12"
+
+[dev-dependencies]
+polars = { version = "0.52", default-features = true, features = ["lazy", "timezones"] }
