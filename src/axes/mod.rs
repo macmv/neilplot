@@ -20,7 +20,7 @@ impl Axes<'_> {
     match self {
       Axes::Scatter(a) => Some(a.data_bounds()),
       Axes::Line(a) => Some(a.data_bounds()),
-      Axes::Histogram(_) => None,
+      Axes::Histogram(a) => Some(a.data_bounds()),
     }
   }
 
