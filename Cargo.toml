@@ -15,4 +15,4 @@ vello = "0.6.0"
 winit = "0.30.12"
 
 [dev-dependencies]
-polars = { version = "0.52", default-features = true, features = ["lazy", "timezones"] }
+polars = { version = "0.52", default-features = true, features = ["lazy", "random", "timezones", "round_series"] }
