@@ -12,6 +12,8 @@ mod bounds;
 mod marker;
 mod render;
 
+pub mod theme;
+
 pub use bounds::{Bounds, Range};
 pub use marker::Marker;
 

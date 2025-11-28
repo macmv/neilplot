@@ -111,8 +111,8 @@ impl<'a> ScatterAxes<'a> {
         let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
 
         // TODO: Themes
-        let index = hues.get(&v).copied().unwrap_or(0) as u8;
-        Brush::Solid(Color::from_rgb8(index * 16, 0, 0))
+        let index = hues.get(&v).copied().unwrap_or(0) as f32 / (hues.len() as f32);
+        crate::theme::ROCKET.sample(index).into()
       } else {
         self.options.color.clone()
       };
