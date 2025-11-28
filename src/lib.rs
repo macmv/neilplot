@@ -73,10 +73,7 @@ impl<'a> Plot<'a> {
     let bounds = self
       .axes
       .iter()
-      .map(|s| match s {
-        Axes::Scatter(sa) => sa.data_bounds(),
-        Axes::Line(la) => la.data_bounds(),
-      })
+      .map(|s| s.data_bounds())
       .fold(Bounds::empty(), |a, b| a.union(b))
       .expand_by(0.1);
 
@@ -255,10 +252,7 @@ impl Plot<'_> {
     }
 
     for axes in &self.axes {
-      match axes {
-        Axes::Scatter(sa) => sa.draw(render, transform),
-        Axes::Line(la) => la.draw(render, transform),
-      }
+      axes.draw(render, transform);
     }
   }
 }

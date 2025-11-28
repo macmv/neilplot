@@ -12,6 +12,22 @@ pub enum Axes<'a> {
   Line(LineAxes<'a>),
 }
 
+impl Axes<'_> {
+  pub fn data_bounds(&self) -> crate::Bounds {
+    match self {
+      Axes::Scatter(sa) => sa.data_bounds(),
+      Axes::Line(la) => la.data_bounds(),
+    }
+  }
+
+  pub fn draw(&self, render: &mut crate::render::Render, transform: vello::kurbo::Affine) {
+    match self {
+      Axes::Scatter(sa) => sa.draw(render, transform),
+      Axes::Line(la) => la.draw(render, transform),
+    }
+  }
+}
+
 impl<'a> Plot<'a> {
   pub fn scatter(&mut self, x: &'a Column, y: &'a Column) -> &mut ScatterAxes<'a> {
     self.axes.push(Axes::Scatter(ScatterAxes::new(x, y)));
