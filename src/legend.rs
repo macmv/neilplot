@@ -1,8 +1,8 @@
-use kurbo::{Affine, Point, Rect, RoundedRect, Size, Stroke, Vec2};
+use kurbo::{Affine, Point, Rect, RoundedRect, Stroke, Vec2};
 use peniko::Brush;
 
 use crate::{
-  Axes, Bounds, Plot,
+  Axes, Bounds, LineOptions, Marker, Plot,
   render::{Align, DrawText, Render},
 };
 
@@ -11,8 +11,10 @@ pub struct Legend {
 }
 
 pub struct LegendItem {
-  label: String,
-  color: Brush,
+  label:  String,
+  line:   Option<LineOptions>,
+  marker: Option<Marker>,
+  color:  Brush,
 }
 
 impl Plot<'_> {
@@ -21,11 +23,26 @@ impl Plot<'_> {
     for ax in &self.axes {
       match ax {
         Axes::Scatter(sa) => {
-          items.push(LegendItem { label: "scatter".to_string(), color: sa.options.color.clone() });
+          items.push(LegendItem {
+            label:  "scatter".to_string(),
+            line:   None,
+            marker: Some(sa.options.marker),
+            color:  sa.options.color.clone(),
+          });
 
           if let Some(trendline) = &sa.options.trendline {
-            items
-              .push(LegendItem { label: "trendline".to_string(), color: trendline.color.clone() });
+            items.push(LegendItem {
+              label: "trendline".to_string(),
+
+              line:   Some(LineOptions {
+                width: trendline.width,
+                color: trendline.color.clone(),
+                dash:  None,
+              }),
+              marker: None,
+
+              color: trendline.color.clone(),
+            });
           }
         }
         _ => {}
@@ -36,6 +53,7 @@ impl Plot<'_> {
 
     const MARGIN: f64 = 20.0;
     const PADDING: f64 = 10.0;
+    const GAP: f64 = 10.0;
     const FONT_SIZE: f64 = 20.0;
     const LINE_HEIGHT: f64 = 20.0;
     const MARKER_WIDTH: f64 = 40.0;
@@ -58,7 +76,7 @@ impl Plot<'_> {
     let inner_height = legend.items.len() as f64 * LINE_HEIGHT;
 
     let rect = Rect::new(
-      viewport.x.max - inner_width - MARGIN - PADDING * 2.0,
+      viewport.x.max - inner_width - MARGIN - PADDING * 2.0 - GAP,
       viewport.y.min - inner_height - MARGIN - PADDING * 2.0,
       viewport.x.max - MARGIN,
       viewport.y.min - MARGIN,
@@ -82,11 +100,24 @@ impl Plot<'_> {
         rect.y0 + i as f64 * LINE_HEIGHT + PADDING + LINE_HEIGHT / 2.0,
       );
 
-      let marker_rect =
-        Rect::from_origin_size(pos - Vec2::new(0.0, 1.0), Size::new(MARKER_WIDTH - 5.0, 2.0));
-      render.fill(&marker_rect, Affine::IDENTITY, &legend.items[i].color);
+      if let Some(line_opts) = &legend.items[i].line {
+        render.stroke(
+          &kurbo::Line::new(pos, pos + Vec2::new(MARKER_WIDTH, 0.0)),
+          Affine::IDENTITY,
+          &legend.items[i].color,
+          &Stroke::new(line_opts.width),
+        );
+      }
 
-      text.position = pos + Vec2::new(MARKER_WIDTH, 0.0);
+      if let Some(marker) = &legend.items[i].marker {
+        render.fill(
+          &marker.to_path(0.1),
+          Affine::scale(10.0).then_translate(pos.to_vec2() + Vec2::new(MARKER_WIDTH / 2.0, 0.0)),
+          &legend.items[i].color,
+        );
+      }
+
+      text.position = pos + Vec2::new(MARKER_WIDTH + GAP, 0.0);
       render.draw_text_layout(layout, text);
     }
   }

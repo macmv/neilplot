@@ -5,7 +5,7 @@ mod scatter;
 
 pub use bar_chart::BarChartAxes;
 pub use histogram::HistogramAxes;
-pub use line::LineAxes;
+pub use line::{LineAxes, LineOptions};
 pub use scatter::{ScatterAxes, TrendlineKind};
 
 use crate::{Plot, bounds::DataBounds};

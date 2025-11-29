@@ -1,5 +1,6 @@
 use kurbo::{BezPath, Circle, Point, Rect, Shape};
 
+#[derive(Debug, Clone, Copy)]
 pub enum Marker {
   Circle,
   Plus,
