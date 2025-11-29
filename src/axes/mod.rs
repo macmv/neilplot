@@ -6,7 +6,7 @@ pub use histogram::HistogramAxes;
 pub use line::LineAxes;
 pub use scatter::ScatterAxes;
 
-use crate::Plot;
+use crate::{Plot, bounds::DataBounds};
 use polars::prelude::*;
 
 pub enum Axes<'a> {
@@ -16,11 +16,11 @@ pub enum Axes<'a> {
 }
 
 impl Axes<'_> {
-  pub fn data_bounds(&self) -> Option<crate::Bounds> {
+  pub fn data_bounds(&self) -> DataBounds {
     match self {
-      Axes::Scatter(a) => Some(a.data_bounds()),
-      Axes::Line(a) => Some(a.data_bounds()),
-      Axes::Histogram(a) => Some(a.data_bounds()),
+      Axes::Scatter(a) => a.data_bounds(),
+      Axes::Line(a) => a.data_bounds(),
+      Axes::Histogram(a) => a.data_bounds(),
     }
   }
 
@@ -52,9 +52,6 @@ impl<'a> Plot<'a> {
 
   pub fn histogram(&mut self, values: &'a Column, bins: usize) -> &mut HistogramAxes<'a> {
     self.x.ticks_fixed(bins + 1);
-    self.x.min(values.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap());
-    self.x.max(values.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap());
-    self.y.min(0.0);
     self.axes.push(Axes::Histogram(HistogramAxes::new(values, bins)));
     match self.axes.last_mut().unwrap() {
       Axes::Histogram(sa) => sa,

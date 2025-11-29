@@ -4,7 +4,7 @@ use kurbo::{Affine, Point};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
-use crate::{Bounds, Marker, Range, render::Render};
+use crate::{Marker, Range, bounds::DataBounds, render::Render};
 
 pub struct ScatterAxes<'a> {
   x:       &'a Column,
@@ -36,17 +36,19 @@ impl<'a> ScatterAxes<'a> {
     ScatterAxes { x, y, options: ScatterOptions::default(), hue_column: None, hue_keys: None }
   }
 
-  pub(crate) fn data_bounds(&self) -> Bounds {
-    Bounds::new(
-      Range::new(
+  pub(crate) fn data_bounds(&self) -> DataBounds {
+    DataBounds {
+      x: Range::new(
         self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
         self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-      Range::new(
+      )
+      .into(),
+      y: Range::new(
         self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
         self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-    )
+      )
+      .into(),
+    }
   }
 
   pub fn hue_from(&mut self, column: &'a Column) -> &mut Self {

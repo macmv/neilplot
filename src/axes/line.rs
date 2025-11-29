@@ -2,7 +2,7 @@ use kurbo::{Affine, BezPath, Point, Stroke};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
-use crate::{Bounds, Range, render::Render};
+use crate::{Range, bounds::DataBounds, render::Render};
 
 pub struct LineAxes<'a> {
   x:       &'a Column,
@@ -27,17 +27,19 @@ impl<'a> LineAxes<'a> {
     LineAxes { x, y, options: LineOptions::default() }
   }
 
-  pub(crate) fn data_bounds(&self) -> Bounds {
-    Bounds::new(
-      Range::new(
+  pub(crate) fn data_bounds(&self) -> DataBounds {
+    DataBounds {
+      x: Range::new(
         self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
         self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-      Range::new(
+      )
+      .into(),
+      y: Range::new(
         self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
         self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-      ),
-    )
+      )
+      .into(),
+    }
   }
 
   fn iter<'b>(&'b self) -> impl Iterator<Item = Point> + 'b {

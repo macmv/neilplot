@@ -7,9 +7,27 @@ pub struct Bounds {
 }
 
 #[derive(Clone, Copy)]
+pub struct DataBounds {
+  pub x: DataRange,
+  pub y: DataRange,
+}
+
+#[derive(Clone, Copy)]
+pub enum DataRange {
+  Continuous { range: Range, margin_min: bool, margin_max: bool },
+  Categorical(usize),
+}
+
+#[derive(Clone, Copy)]
 pub struct Range {
   pub min: f64,
   pub max: f64,
+}
+
+impl From<Range> for DataRange {
+  fn from(range: Range) -> Self {
+    DataRange::Continuous { range, margin_min: true, margin_max: true }
+  }
 }
 
 impl Bounds {

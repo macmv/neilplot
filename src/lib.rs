@@ -4,6 +4,7 @@ use peniko::{Brush, Color};
 
 use crate::{
   axes::{Axes, ScatterAxes},
+  bounds::{DataBounds, DataRange},
   render::{Align, DrawText, Render},
 };
 
@@ -79,17 +80,50 @@ impl<'a> Plot<'a> {
   }
 
   fn bounds(&self) -> Bounds {
-    let bounds = self
-      .axes
-      .iter()
-      .filter_map(|s| s.data_bounds())
-      .fold(Bounds::empty(), |a, b| a.union(b))
-      .expand_by(0.1);
+    let mut bounds: Option<Bounds> = None;
+    for axes in &self.axes {
+      let bound = axes.data_bounds();
+      bounds = Some(match bounds {
+        Some(b) => b.union(self.pretty_bounds(bound)),
+        None => self.pretty_bounds(bound),
+      });
+    }
 
     Bounds::new(
-      Range::new(self.x.min.unwrap_or(bounds.x.min), self.x.max.unwrap_or(bounds.x.max)),
-      Range::new(self.y.min.unwrap_or(bounds.y.min), self.y.max.unwrap_or(bounds.y.max)),
+      Range::new(
+        self.x.min.or(bounds.map(|b| b.x.min)).unwrap_or(0.0),
+        self.x.max.or(bounds.map(|b| b.x.max)).unwrap_or(0.0),
+      ),
+      Range::new(
+        self.y.min.or(bounds.map(|b| b.y.min)).unwrap_or(0.0),
+        self.y.max.or(bounds.map(|b| b.y.max)).unwrap_or(0.0),
+      ),
     )
+  }
+
+  fn pretty_bounds(&self, b: DataBounds) -> Bounds {
+    Bounds { x: self.pretty_range(b.x), y: self.pretty_range(b.y) }
+  }
+
+  fn pretty_range(&self, r: DataRange) -> Range {
+    match r {
+      DataRange::Continuous { range, margin_min, margin_max } => {
+        let range = if margin_min {
+          Range::new(range.min - (range.size() * 0.1).abs(), range.max)
+        } else {
+          range
+        };
+
+        let range = if margin_max {
+          Range::new(range.min, range.max + (range.size() * 0.1).abs())
+        } else {
+          range
+        };
+
+        range
+      }
+      DataRange::Categorical(count) => Range::new(-0.5, count as f64 - 0.5),
+    }
   }
 }
 
