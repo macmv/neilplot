@@ -139,8 +139,9 @@ impl<'a> ScatterAxes<'a> {
       let color = if let Some(ref hues) = hues {
         let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
 
-        // TODO: Themes
+        // NOTE: into_static because of https://github.com/pola-rs/polars/issues/25542
         let index = hues.get(&v.into_static()).copied().unwrap_or(0) as f32 / (hues.len() as f32);
+        // TODO: Themes
         crate::theme::ROCKET.sample(index).into()
       } else {
         self.options.color.clone()
