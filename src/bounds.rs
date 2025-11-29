@@ -15,8 +15,14 @@ pub struct DataBounds<'a> {
 
 #[derive(Clone, Copy)]
 pub enum DataRange<'a> {
-  Continuous { range: Range, margin_min: bool, margin_max: bool },
+  Continuous { range: Range, unit: RangeUnit, margin_min: bool, margin_max: bool },
   Categorical(&'a Column),
+}
+
+#[derive(Clone, Copy)]
+pub enum RangeUnit {
+  Absolute,
+  Duration,
 }
 
 #[derive(Clone, Copy)]
@@ -27,7 +33,7 @@ pub struct Range {
 
 impl From<Range> for DataRange<'_> {
   fn from(range: Range) -> Self {
-    DataRange::Continuous { range, margin_min: true, margin_max: true }
+    DataRange::Continuous { range, unit: RangeUnit::Absolute, margin_min: true, margin_max: true }
   }
 }
 

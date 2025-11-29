@@ -6,7 +6,7 @@ use peniko::{Brush, Color};
 use polars::prelude::{AnyValue, Column};
 
 use crate::{
-  bounds::{DataBounds, DataRange},
+  bounds::{DataBounds, DataRange, RangeUnit},
   render::{Align, DrawText, Render},
 };
 
@@ -117,11 +117,13 @@ impl<'a> Plot<'a> {
     bounds.unwrap_or(DataBounds {
       x: DataRange::Continuous {
         range:      Range::new(0.0, 1.0),
+        unit:       RangeUnit::Absolute,
         margin_min: false,
         margin_max: false,
       },
       y: DataRange::Continuous {
         range:      Range::new(0.0, 1.0),
+        unit:       RangeUnit::Absolute,
         margin_min: false,
         margin_max: false,
       },
@@ -135,10 +137,16 @@ impl<'a> Plot<'a> {
   fn union_range(&self, a: DataRange<'_>, b: DataRange<'_>) -> DataRange<'_> {
     match (a, b) {
       (
-        DataRange::Continuous { range: range_a, margin_min: min_a, margin_max: max_a },
-        DataRange::Continuous { range: range_b, margin_min: min_b, margin_max: max_b },
+        DataRange::Continuous {
+          range: range_a,
+          unit: unit_a,
+          margin_min: min_a,
+          margin_max: max_a,
+        },
+        DataRange::Continuous { range: range_b, unit: _, margin_min: min_b, margin_max: max_b },
       ) => DataRange::Continuous {
         range:      range_a.union(range_b),
+        unit:       unit_a, // TODO
         margin_min: min_a || min_b,
         margin_max: max_a || max_b,
       },
@@ -398,7 +406,7 @@ impl Axis {
 
   fn pretty_range(&self, r: DataRange) -> Range {
     match r {
-      DataRange::Continuous { range, margin_min, margin_max } => {
+      DataRange::Continuous { range, margin_min, margin_max, .. } => {
         let mut r = range;
         if margin_min {
           r.min -= (r.size() * self.margin).abs();

@@ -3,7 +3,7 @@ use polars::prelude::*;
 
 use crate::{
   Range, ResultExt,
-  bounds::{DataBounds, DataRange},
+  bounds::{DataBounds, DataRange, RangeUnit},
   render::Render,
 };
 
@@ -26,6 +26,7 @@ impl<'a> BarChartAxes<'a> {
           self.values.max_reduce()?.into_value().try_extract::<i64>()? as f64,
         )
         .into(),
+        unit:       RangeUnit::Absolute,
         margin_min: false,
         margin_max: true,
       },
