@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
-use kurbo::{Affine, BezPath, Point};
+use kurbo::{Affine, BezPath, Point, Stroke};
+use peniko::Color;
 use polars::prelude::*;
 
 use crate::{Range, render::Render};
@@ -41,27 +42,61 @@ impl<'a> HistogramAxes<'a> {
       self.range,
       crate::Range::new(
         0.0,
-        self.counts.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.counts.max_reduce().unwrap().into_value().try_extract::<i64>().unwrap() as f64,
       ),
     )
   }
 
   pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {
-    let mut path = BezPath::new();
-    path.move_to(Point::new(self.range.min, 0.0));
+    let mut outline = BezPath::new();
+    let mut fill = BezPath::new();
+    outline.move_to(Point::new(self.range.min, 0.0));
+    fill.move_to(Point::new(self.range.min, 0.0));
 
+    let mut prev = None;
+    let mut start = None;
     for x in 0..self.counts.len() {
-      let count = self.counts.get(x).unwrap().try_extract::<f64>().unwrap();
+      let count = self.counts.get(x).unwrap().try_extract::<i64>().unwrap();
 
       let x = self.range.min + (x as f64 / self.counts.len() as f64) * self.range.size();
 
-      path.line_to(Point::new(x, count));
-      path.line_to(Point::new(x + self.range.size() / self.counts.len() as f64, count));
+      if let Some((_, prev_count)) = prev {
+        if count > prev_count || prev_count == 0 {
+          outline.move_to(Point::new(x, 0.0));
+          if count != 0 {
+            outline.line_to(Point::new(x, count as f64));
+          }
+        } else {
+          outline.line_to(Point::new(x, 0.0));
+          if count != 0 {
+            outline.move_to(Point::new(x, count as f64));
+          }
+        }
+      } else {
+        outline.line_to(Point::new(x, count as f64));
+      }
+      prev = Some((x, count));
+
+      fill.line_to(Point::new(x, count as f64));
+      fill.line_to(Point::new(x + self.range.size() / self.counts.len() as f64, count as f64));
+      if count != 0 {
+        outline.line_to(Point::new(x + self.range.size() / self.counts.len() as f64, count as f64));
+        if start.is_none() {
+          start = Some(x);
+        }
+      } else if let Some(start_x) = start.take() {
+        outline.line_to(Point::new(start_x, 0.0));
+      }
     }
 
-    path.line_to(Point::new(self.range.max, 0.0));
-    path.close_path();
+    fill.line_to(Point::new(self.range.max, 0.0));
+    fill.close_path();
+    outline.line_to(Point::new(self.range.max, 0.0));
+    if let Some(start_x) = start {
+      outline.line_to(Point::new(start_x, 0.0));
+    }
 
-    render.fill(&path, transform, crate::theme::ROCKET.sample(0.0));
+    render.fill(&fill, transform, crate::theme::ROCKET.sample(0.0));
+    render.stroke(&(transform * outline), Affine::IDENTITY, Color::BLACK, &Stroke::new(2.0));
   }
 }
