@@ -37,12 +37,12 @@ pub struct StrokeStyle {
   brush:  Option<Brush>,
 }
 
-#[derive(Default)]
 pub struct Axis {
-  title: Option<String>,
-  min:   Option<f64>,
-  max:   Option<f64>,
-  ticks: Ticks,
+  title:  Option<String>,
+  min:    Option<f64>,
+  max:    Option<f64>,
+  margin: f64,
+  ticks:  Ticks,
 }
 
 #[derive(Default)]
@@ -50,6 +50,12 @@ pub enum Ticks {
   #[default]
   Auto,
   Fixed(usize),
+}
+
+impl Default for Axis {
+  fn default() -> Self {
+    Axis { title: None, min: None, max: None, margin: 0.1, ticks: Ticks::Auto }
+  }
 }
 
 impl<'a> Plot<'a> {
@@ -147,6 +153,11 @@ impl Axis {
 
   pub fn max(&mut self, max: f64) -> &mut Self {
     self.max = Some(max);
+    self
+  }
+
+  pub fn margin(&mut self, margin: f64) -> &mut Self {
+    self.margin = margin;
     self
   }
 
@@ -360,10 +371,10 @@ impl Axis {
       DataRange::Continuous { range, margin_min, margin_max } => {
         let mut r = range;
         if margin_min {
-          r.min -= (r.size() * 0.1).abs();
+          r.min -= (r.size() * self.margin).abs();
         }
         if margin_max {
-          r.max += (r.size() * 0.1).abs();
+          r.max += (r.size() * self.margin).abs();
         }
         r
       }
