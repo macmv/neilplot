@@ -440,7 +440,9 @@ impl<'a> Iterator for ColumnIter<'a> {
 impl fmt::Display for Tick<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self {
-      Tick::Auto { value, precision } => write!(f, "{value:.*}", *precision as usize),
+      Tick::Auto { value, precision } => {
+        write!(f, "{value:.*}", precision.saturating_sub(3) as usize)
+      }
       Tick::Fixed { value } => write!(f, "{value:.2}"),
       Tick::Label { label, .. } => match label {
         AnyValue::String(s) => write!(f, "{s}"),
