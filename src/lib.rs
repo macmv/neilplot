@@ -1,3 +1,5 @@
+use std::fmt;
+
 use kurbo::{Affine, Cap, Line, Point, Stroke};
 use parley::FontWeight;
 use peniko::{Brush, Color};
@@ -250,8 +252,7 @@ impl Plot<'_> {
     let ticks = 10;
     let iter = self.y.iter_ticks(data_bounds.y, ticks);
     for (y, vy) in iter
-      .clone()
-      .map(|v| (v, (transform * Point::new(0.0, v)).y))
+      .map(|t| (t, (transform * Point::new(0.0, t.position())).y))
       .filter(|(_, vy)| viewport.y.contains(vy))
     {
       render.stroke(
@@ -269,7 +270,7 @@ impl Plot<'_> {
         );
       }
       render.draw_text(DrawText {
-        text: &iter.format_tick(y),
+        text: &y.to_string(),
         size: 12.0,
         position: Point { x: viewport.x.min - 15.0, y: vy },
         brush: TEXT_COLOR,
@@ -281,8 +282,7 @@ impl Plot<'_> {
 
     let iter = self.x.iter_ticks(data_bounds.x, ticks);
     for (x, vx) in iter
-      .clone()
-      .map(|v| (v, (transform * Point::new(v, 0.0)).x))
+      .map(|t| (t, (transform * Point::new(t.position(), 0.0)).x))
       .filter(|(_, vx)| viewport.x.contains(vx))
     {
       render.stroke(
@@ -300,7 +300,7 @@ impl Plot<'_> {
         );
       }
       render.draw_text(DrawText {
-        text: &iter.format_tick(x),
+        text: &x.to_string(),
         size: 12.0,
         position: Point { x: vx, y: viewport.y.min + 15.0 },
         brush: TEXT_COLOR,
@@ -330,6 +330,21 @@ struct FixedTicksIter {
   step:    f64,
 }
 
+#[derive(Clone, Copy)]
+enum Tick {
+  Auto { value: f64, precision: u32 },
+  Fixed { value: f64 },
+}
+
+impl Tick {
+  fn position(&self) -> f64 {
+    match self {
+      Tick::Auto { value, .. } => *value,
+      Tick::Fixed { value } => *value,
+    }
+  }
+}
+
 impl Axis {
   fn iter_ticks(&self, range: Range, nice_ticks: u32) -> TicksIter {
     match &self.ticks {
@@ -340,22 +355,15 @@ impl Axis {
   }
 }
 
-impl TicksIter {
-  fn format_tick(&self, value: f64) -> String {
-    match &self {
-      TicksIter::Auto(n) => format!("{:.*}", n.precision().saturating_sub(3), value),
-      TicksIter::Fixed(_) => format!("{:.2}", value),
-    }
-  }
-}
-
 impl Iterator for TicksIter {
-  type Item = f64;
+  type Item = Tick;
 
   fn next(&mut self) -> Option<Self::Item> {
     match self {
-      TicksIter::Auto(iter) => iter.next(),
-      TicksIter::Fixed(iter) => iter.next(),
+      TicksIter::Auto(iter) => {
+        iter.next().map(|v| Tick::Auto { value: v, precision: iter.precision() as u32 })
+      }
+      TicksIter::Fixed(iter) => iter.next().map(|v| Tick::Fixed { value: v }),
     }
   }
 }
@@ -381,6 +389,15 @@ impl Iterator for FixedTicksIter {
       let value = self.start + (self.current as f64) * self.step;
       self.current += 1;
       Some(value)
+    }
+  }
+}
+
+impl fmt::Display for Tick {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match &self {
+      Tick::Auto { value, precision } => write!(f, "{value:.*}", *precision as usize),
+      Tick::Fixed { value } => write!(f, "{value:.2}"),
     }
   }
 }
