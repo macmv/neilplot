@@ -23,6 +23,7 @@ pub enum DataRange<'a> {
 pub enum RangeUnit {
   Absolute,
   Duration,
+  Date,
 }
 
 #[derive(Clone, Copy)]
@@ -136,6 +137,7 @@ impl DataRange<'_> {
       ),
       unit:       match column.dtype() {
         polars::prelude::DataType::Duration(_) => RangeUnit::Duration,
+        polars::prelude::DataType::Date => RangeUnit::Date,
         _ => RangeUnit::Absolute,
       },
       margin_min: true,

@@ -488,6 +488,9 @@ impl fmt::Display for Tick<'_> {
       Tick::Auto { value, precision: _, unit: RangeUnit::Duration } => {
         write!(f, "{:?}", std::time::Duration::from_nanos(*value as u64))
       }
+      Tick::Auto { value, precision: _, unit: RangeUnit::Date } => {
+        write!(f, "{}", AnyValue::Date(*value as i32))
+      }
       Tick::Fixed { value } => write!(f, "{value:.2}"),
       Tick::Label { label, .. } => match label {
         AnyValue::String(s) => write!(f, "{s}"),
