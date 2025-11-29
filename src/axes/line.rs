@@ -2,7 +2,11 @@ use kurbo::{Affine, BezPath, Point, Stroke};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
-use crate::{Range, ResultExt, bounds::DataBounds, render::Render};
+use crate::{
+  ResultExt,
+  bounds::{DataBounds, DataRange},
+  render::Render,
+};
 
 pub struct LineAxes<'a> {
   x:       &'a Column,
@@ -29,18 +33,7 @@ impl<'a> LineAxes<'a> {
   }
 
   pub(crate) fn data_bounds(&self) -> PolarsResult<DataBounds<'_>> {
-    Ok(DataBounds {
-      x: Range::new(
-        self.x.min_reduce()?.into_value().try_extract::<f64>()?,
-        self.x.max_reduce()?.into_value().try_extract::<f64>()?,
-      )
-      .into(),
-      y: Range::new(
-        self.y.min_reduce()?.into_value().try_extract::<f64>()?,
-        self.y.max_reduce()?.into_value().try_extract::<f64>()?,
-      )
-      .into(),
-    })
+    Ok(DataBounds { x: DataRange::from_column(self.x)?, y: DataRange::from_column(self.y)? })
   }
 
   fn iter<'b>(&'b self) -> impl Iterator<Item = PolarsResult<Point>> + 'b {

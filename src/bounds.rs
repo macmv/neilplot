@@ -1,5 +1,5 @@
 use kurbo::Affine;
-use polars::prelude::Column;
+use polars::{error::PolarsResult, prelude::Column};
 
 #[derive(Clone, Copy)]
 pub struct Bounds {
@@ -124,6 +124,23 @@ impl Range {
 
     let precision = (-k as i32 + 4).max(0) as usize;
     NiceTicksIter::new(lo, hi, step, precision)
+  }
+}
+
+impl DataRange<'_> {
+  pub(crate) fn from_column<'a, 'b>(column: &'a Column) -> PolarsResult<DataRange<'b>> {
+    Ok(DataRange::Continuous {
+      range:      Range::new(
+        column.min_reduce()?.into_value().try_extract::<f64>()?,
+        column.max_reduce()?.into_value().try_extract::<f64>()?,
+      ),
+      unit:       match column.dtype() {
+        polars::prelude::DataType::Duration(_) => RangeUnit::Duration,
+        _ => RangeUnit::Absolute,
+      },
+      margin_min: true,
+      margin_max: true,
+    })
   }
 }
 
