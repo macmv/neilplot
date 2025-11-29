@@ -34,14 +34,10 @@ impl Plot<'_> {
             items.push(LegendItem {
               label: "trendline".to_string(),
 
-              line:   Some(LineOptions {
-                width: trendline.width,
-                color: trendline.color.clone(),
-                dash:  None,
-              }),
+              line:   Some(trendline.line.clone()),
               marker: None,
 
-              color: trendline.color.clone(),
+              color: trendline.line.color.clone(),
             });
           }
         }

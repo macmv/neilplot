@@ -10,6 +10,7 @@ pub struct LineAxes<'a> {
   options: LineOptions,
 }
 
+#[derive(Clone)]
 pub struct LineOptions {
   pub width: f64,
   pub color: Brush,

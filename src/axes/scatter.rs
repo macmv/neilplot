@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use kurbo::{Affine, Line, Point, Stroke};
+use kurbo::{Affine, Line, Point};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
-use crate::{Marker, Range, ResultExt, bounds::DataBounds, render::Render};
+use crate::{LineOptions, Marker, Range, ResultExt, bounds::DataBounds, render::Render};
 
 pub struct ScatterAxes<'a> {
   x:                  &'a Column,
@@ -23,9 +23,8 @@ pub struct ScatterOptions {
 }
 
 pub struct TrendlineOptions {
-  pub kind:  TrendlineKind,
-  pub color: Brush,
-  pub width: f64,
+  pub kind: TrendlineKind,
+  pub line: LineOptions,
 }
 
 pub enum TrendlineKind {
@@ -96,8 +95,11 @@ impl<'a> ScatterAxes<'a> {
   pub fn trendline(&mut self, kind: TrendlineKind) -> &mut TrendlineOptions {
     self.options.trendline = Some(TrendlineOptions {
       kind,
-      color: Brush::Solid(Color::from_rgb8(200, 50, 50)),
-      width: 2.0,
+      line: LineOptions {
+        width: 2.0,
+        color: Brush::Solid(Color::from_rgb8(200, 50, 50)),
+        dash:  None,
+      },
     });
     self.options.trendline.as_mut().unwrap()
   }
@@ -194,7 +196,7 @@ impl TrendlineOptions {
     );
 
     let line = Line::new(p0, p1);
-    render.stroke(&(transform * line), Affine::IDENTITY, &self.color, &Stroke::new(self.width));
+    render.stroke(&(transform * line), Affine::IDENTITY, &self.line.color, &self.line.stroke());
 
     Ok(())
   }
