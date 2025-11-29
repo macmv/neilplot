@@ -317,9 +317,10 @@ impl Plot<'_> {
 }
 
 #[derive(Clone)]
-enum TicksIter {
+enum TicksIter<'a> {
   Auto(bounds::NiceTicksIter),
   Fixed(FixedTicksIter),
+  Labeled(std::iter::Enumerate<std::slice::Iter<'a, String>>),
 }
 
 #[derive(Clone)]
@@ -331,32 +332,34 @@ struct FixedTicksIter {
 }
 
 #[derive(Clone, Copy)]
-enum Tick {
+enum Tick<'a> {
   Auto { value: f64, precision: u32 },
   Fixed { value: f64 },
+  Label { label: &'a str, index: usize },
 }
 
-impl Tick {
+impl Tick<'_> {
   fn position(&self) -> f64 {
     match self {
       Tick::Auto { value, .. } => *value,
       Tick::Fixed { value } => *value,
+      Tick::Label { index, .. } => *index as f64,
     }
   }
 }
 
 impl Axis {
-  fn iter_ticks(&self, range: Range, nice_ticks: u32) -> TicksIter {
+  fn iter_ticks(&self, range: Range, nice_ticks: u32) -> TicksIter<'_> {
     match &self.ticks {
       Ticks::Auto => TicksIter::Auto(range.nice_ticks(nice_ticks)),
       Ticks::Fixed(count) => TicksIter::Fixed(FixedTicksIter::new(range, *count)),
-      Ticks::Labeled(_) => todo!(),
+      Ticks::Labeled(labels) => TicksIter::Labeled(labels.iter().enumerate()),
     }
   }
 }
 
-impl Iterator for TicksIter {
-  type Item = Tick;
+impl<'a> Iterator for TicksIter<'a> {
+  type Item = Tick<'a>;
 
   fn next(&mut self) -> Option<Self::Item> {
     match self {
@@ -364,6 +367,7 @@ impl Iterator for TicksIter {
         iter.next().map(|v| Tick::Auto { value: v, precision: iter.precision() as u32 })
       }
       TicksIter::Fixed(iter) => iter.next().map(|v| Tick::Fixed { value: v }),
+      TicksIter::Labeled(iter) => iter.next().map(|(i, v)| Tick::Label { label: v, index: i }),
     }
   }
 }
@@ -393,11 +397,12 @@ impl Iterator for FixedTicksIter {
   }
 }
 
-impl fmt::Display for Tick {
+impl fmt::Display for Tick<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self {
       Tick::Auto { value, precision } => write!(f, "{value:.*}", *precision as usize),
       Tick::Fixed { value } => write!(f, "{value:.2}"),
+      Tick::Label { label, .. } => write!(f, "{label}"),
     }
   }
 }

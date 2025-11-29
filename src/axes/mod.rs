@@ -1,7 +1,9 @@
+mod bar_chart;
 mod histogram;
 mod line;
 mod scatter;
 
+pub use bar_chart::BarChartAxes;
 pub use histogram::HistogramAxes;
 pub use line::LineAxes;
 pub use scatter::ScatterAxes;
@@ -13,6 +15,7 @@ pub enum Axes<'a> {
   Scatter(ScatterAxes<'a>),
   Line(LineAxes<'a>),
   Histogram(HistogramAxes<'a>),
+  BarChart(BarChartAxes<'a>),
 }
 
 impl Axes<'_> {
@@ -21,6 +24,7 @@ impl Axes<'_> {
       Axes::Scatter(a) => a.data_bounds(),
       Axes::Line(a) => a.data_bounds(),
       Axes::Histogram(a) => a.data_bounds(),
+      Axes::BarChart(a) => a.data_bounds(),
     }
   }
 
@@ -29,6 +33,7 @@ impl Axes<'_> {
       Axes::Scatter(a) => a.draw(render, transform),
       Axes::Line(a) => a.draw(render, transform),
       Axes::Histogram(a) => a.draw(render, transform),
+      Axes::BarChart(a) => a.draw(render, transform),
     }
   }
 }
@@ -63,6 +68,15 @@ impl<'a> Plot<'a> {
     self.axes.push(Axes::Histogram(HistogramAxes::new_counted(counts)));
     match self.axes.last_mut().unwrap() {
       Axes::Histogram(sa) => sa,
+      _ => unreachable!(),
+    }
+  }
+
+  pub fn bar_chart(&mut self, labels: &'a Column, values: &'a Column) -> &mut BarChartAxes<'a> {
+    self.x.ticks_labeled(labels.phys_iter().map(|v| v.to_string()).collect());
+    self.axes.push(Axes::BarChart(BarChartAxes::new(labels, values)));
+    match self.axes.last_mut().unwrap() {
+      Axes::BarChart(a) => a,
       _ => unreachable!(),
     }
   }
