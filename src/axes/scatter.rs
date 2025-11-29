@@ -11,8 +11,8 @@ pub struct ScatterAxes<'a> {
   y:                  &'a Column,
   pub(crate) options: ScatterOptions,
 
-  hue_column: Option<&'a Column>,
-  hue_keys:   Option<Vec<AnyValue<'a>>>,
+  hue_column:          Option<&'a Column>,
+  pub(crate) hue_keys: Option<Vec<AnyValue<'a>>>,
 }
 
 pub struct ScatterOptions {
@@ -113,28 +113,25 @@ impl<'a> ScatterAxes<'a> {
     })
   }
 
-  pub(crate) fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
-    let unique;
-
-    let hues: Option<HashMap<AnyValue, usize>> = if let Some(order) = &self.hue_keys {
-      Some(order.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect::<HashMap<_, _>>())
+  pub(crate) fn hues(&self) -> Option<Vec<AnyValue<'static>>> {
+    if let Some(order) = &self.hue_keys {
+      Some(order.iter().map(|v| v.clone().into_static()).collect())
     } else if let Some(hue_column) = &self.hue_column {
       if let Some(u) = hue_column.unique_stable().log_err() {
-        unique = u;
-        Some(
-          unique
-            .as_materialized_series()
-            .iter()
-            .enumerate()
-            .map(|(i, v)| (v, i))
-            .collect::<HashMap<_, _>>(),
-        )
+        Some(u.as_materialized_series().iter().map(|v| v.into_static()).collect::<Vec<_>>())
       } else {
         None
       }
     } else {
       None
-    };
+    }
+  }
+
+  pub(crate) fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
+    let hues = self.hues();
+    let hues = hues
+      .as_ref()
+      .map(|order| order.iter().enumerate().map(|(i, s)| (s, i)).collect::<HashMap<_, _>>());
 
     let shape = self.options.marker.to_path(0.1);
 
@@ -143,7 +140,7 @@ impl<'a> ScatterAxes<'a> {
         let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
 
         // TODO: Themes
-        let index = hues.get(&v).copied().unwrap_or(0) as f32 / (hues.len() as f32);
+        let index = hues.get(&v.into_static()).copied().unwrap_or(0) as f32 / (hues.len() as f32);
         crate::theme::ROCKET.sample(index).into()
       } else {
         self.options.color.clone()

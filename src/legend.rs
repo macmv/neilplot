@@ -23,12 +23,23 @@ impl Plot<'_> {
     for ax in &self.axes {
       match ax {
         Axes::Scatter(sa) => {
-          items.push(LegendItem {
-            label:  "scatter".to_string(),
-            line:   None,
-            marker: Some(sa.options.marker),
-            color:  sa.options.color.clone(),
-          });
+          if let Some(keys) = sa.hues() {
+            for (i, key) in keys.iter().enumerate() {
+              items.push(LegendItem {
+                label:  key.to_string(),
+                line:   None,
+                marker: Some(sa.options.marker),
+                color:  crate::theme::ROCKET.sample(i as f32 / keys.len() as f32).into(),
+              });
+            }
+          } else {
+            items.push(LegendItem {
+              label:  "scatter".to_string(),
+              line:   None,
+              marker: Some(sa.options.marker),
+              color:  sa.options.color.clone(),
+            });
+          }
 
           if let Some(trendline) = &sa.options.trendline {
             items.push(LegendItem {
