@@ -113,23 +113,7 @@ impl<'a> Plot<'a> {
   }
 
   fn pretty_bounds(&self, data_bounds: DataBounds<'_>) -> Bounds {
-    Bounds { x: self.pretty_range(data_bounds.x), y: self.pretty_range(data_bounds.y) }
-  }
-
-  fn pretty_range(&self, r: DataRange) -> Range {
-    match r {
-      DataRange::Continuous { range, margin_min, margin_max } => {
-        let mut r = range;
-        if margin_min {
-          r.min -= (r.size() * 0.1).abs();
-        }
-        if margin_max {
-          r.max += (r.size() * 0.1).abs();
-        }
-        r
-      }
-      DataRange::Categorical(labels) => Range::new(-0.5, labels.len() as f64 - 0.5),
-    }
+    Bounds { x: self.x.pretty_range(data_bounds.x), y: self.y.pretty_range(data_bounds.y) }
   }
 }
 
@@ -249,7 +233,7 @@ impl Plot<'_> {
     let transform = self.pretty_bounds(data_bounds).transform_to(viewport);
 
     let ticks = 10;
-    let iter = self.y.iter_ticks(self, data_bounds.y, ticks);
+    let iter = self.y.iter_ticks(data_bounds.y, ticks);
     for (y, vy) in iter
       .map(|t| {
         let y = (transform * Point::new(0.0, t.position())).y;
@@ -282,7 +266,7 @@ impl Plot<'_> {
       });
     }
 
-    let iter = self.x.iter_ticks(self, data_bounds.x, ticks);
+    let iter = self.x.iter_ticks(data_bounds.x, ticks);
     for (x, vx) in iter
       .map(|t| {
         let x = (transform * Point::new(t.position(), 0.0)).x;
@@ -357,7 +341,7 @@ impl Tick<'_> {
 }
 
 impl Axis {
-  fn iter_ticks<'a>(&self, plot: &Plot, range: DataRange<'a>, nice_ticks: u32) -> TicksIter<'a> {
+  fn iter_ticks<'a>(&self, range: DataRange<'a>, nice_ticks: u32) -> TicksIter<'a> {
     match &self.ticks {
       Ticks::Auto => match range {
         DataRange::Categorical(labels) => {
@@ -366,8 +350,24 @@ impl Axis {
         DataRange::Continuous { range, .. } => TicksIter::Auto(range.nice_ticks(nice_ticks)),
       },
       Ticks::Fixed(count) => {
-        TicksIter::Fixed(FixedTicksIter::new(plot.pretty_range(range), *count))
+        TicksIter::Fixed(FixedTicksIter::new(self.pretty_range(range), *count))
       }
+    }
+  }
+
+  fn pretty_range(&self, r: DataRange) -> Range {
+    match r {
+      DataRange::Continuous { range, margin_min, margin_max } => {
+        let mut r = range;
+        if margin_min {
+          r.min -= (r.size() * 0.1).abs();
+        }
+        if margin_max {
+          r.max += (r.size() * 0.1).abs();
+        }
+        r
+      }
+      DataRange::Categorical(labels) => Range::new(-0.5, labels.len() as f64 - 0.5),
     }
   }
 }
