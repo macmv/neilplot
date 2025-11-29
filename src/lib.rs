@@ -249,7 +249,7 @@ impl Plot<'_> {
     let transform = self.pretty_bounds(data_bounds).transform_to(viewport);
 
     let ticks = 10;
-    let iter = self.y.iter_ticks(data_bounds.y, ticks);
+    let iter = self.y.iter_ticks(self, data_bounds.y, ticks);
     for (y, vy) in iter
       .map(|t| {
         let y = (transform * Point::new(0.0, t.position())).y;
@@ -282,7 +282,7 @@ impl Plot<'_> {
       });
     }
 
-    let iter = self.x.iter_ticks(data_bounds.x, ticks);
+    let iter = self.x.iter_ticks(self, data_bounds.x, ticks);
     for (x, vx) in iter
       .map(|t| {
         let x = (transform * Point::new(t.position(), 0.0)).x;
@@ -357,19 +357,17 @@ impl Tick<'_> {
 }
 
 impl Axis {
-  fn iter_ticks<'a>(&self, range: DataRange<'a>, nice_ticks: u32) -> TicksIter<'a> {
+  fn iter_ticks<'a>(&self, plot: &Plot, range: DataRange<'a>, nice_ticks: u32) -> TicksIter<'a> {
     match &self.ticks {
       Ticks::Auto => match range {
-        // TODO
         DataRange::Categorical(labels) => {
           TicksIter::Labeled(ColumnIter { column: labels, current: 0 })
         }
         DataRange::Continuous { range, .. } => TicksIter::Auto(range.nice_ticks(nice_ticks)),
       },
-      Ticks::Fixed(count) => match range {
-        DataRange::Continuous { range, .. } => TicksIter::Fixed(FixedTicksIter::new(range, *count)),
-        _ => todo!(),
-      },
+      Ticks::Fixed(count) => {
+        TicksIter::Fixed(FixedTicksIter::new(plot.pretty_range(range), *count))
+      }
     }
   }
 }
