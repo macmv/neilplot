@@ -105,7 +105,7 @@ impl Plot<'_> {
           &kurbo::Line::new(pos, pos + Vec2::new(MARKER_WIDTH, 0.0)),
           Affine::IDENTITY,
           &legend.items[i].color,
-          &Stroke::new(line_opts.width),
+          &line_opts.stroke(),
         );
       }
 

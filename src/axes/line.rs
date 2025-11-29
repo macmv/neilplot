@@ -62,11 +62,16 @@ impl<'a> LineAxes<'a> {
       }
     }
 
-    let mut stroke = Stroke::new(self.options.width);
-    if let Some(dash) = &self.options.dash {
+    render.stroke(&shape, Affine::IDENTITY, &self.options.color, &self.options.stroke());
+  }
+}
+
+impl LineOptions {
+  pub(crate) fn stroke(&self) -> Stroke {
+    let mut stroke = Stroke::new(self.width);
+    if let Some(dash) = &self.dash {
       stroke = stroke.with_dashes(0.0, dash.clone());
     }
-
-    render.stroke(&shape, Affine::IDENTITY, &self.options.color, &stroke);
+    stroke
   }
 }
