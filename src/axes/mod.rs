@@ -50,8 +50,16 @@ impl<'a> Plot<'a> {
     }
   }
 
-  pub fn histogram(&mut self, counts: &'a Column) -> &mut HistogramAxes<'a> {
-    self.axes.push(Axes::Histogram(HistogramAxes::new(counts)));
+  pub fn histogram(&mut self, values: &'a Column, bins: usize) -> &mut HistogramAxes<'a> {
+    self.axes.push(Axes::Histogram(HistogramAxes::new(values, bins)));
+    match self.axes.last_mut().unwrap() {
+      Axes::Histogram(sa) => sa,
+      _ => unreachable!(),
+    }
+  }
+
+  pub fn histogram_counted(&mut self, counts: &'a Column) -> &mut HistogramAxes<'a> {
+    self.axes.push(Axes::Histogram(HistogramAxes::new_counted(counts)));
     match self.axes.last_mut().unwrap() {
       Axes::Histogram(sa) => sa,
       _ => unreachable!(),

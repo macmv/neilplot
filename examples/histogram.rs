@@ -10,15 +10,7 @@ fn main() -> PolarsResult<()> {
   plot.x.title("Label");
   plot.y.title("Counts");
 
-  let df = df
-    .lazy()
-    .with_column((col("rand") * lit(10)).floor().cast(DataType::Int32).alias("rand"))
-    .group_by([col("rand")])
-    .agg([col("rand").count().alias("counts")])
-    .sort(["rand"], SortMultipleOptions::new())
-    .collect()?;
-
-  plot.histogram(df.column("counts")?);
+  plot.histogram(df.column("rand")?, 30);
 
   plot.show();
 
