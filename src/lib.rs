@@ -3,6 +3,7 @@ use std::fmt;
 use kurbo::{Affine, Cap, Line, Point, Stroke};
 use parley::FontWeight;
 use peniko::{Brush, Color};
+use polars::prelude::{AnyValue, Column};
 
 use crate::{
   axes::{Axes, ScatterAxes},
@@ -320,10 +321,10 @@ impl Plot<'_> {
   }
 }
 
-enum TicksIter {
+enum TicksIter<'a> {
   Auto(bounds::NiceTicksIter),
   Fixed(FixedTicksIter),
-  Labeled(std::iter::Enumerate<std::vec::IntoIter<String>>),
+  Labeled(ColumnIter<'a>),
 }
 
 struct FixedTicksIter {
@@ -333,14 +334,19 @@ struct FixedTicksIter {
   step:    f64,
 }
 
-#[derive(Clone)]
-enum Tick {
-  Auto { value: f64, precision: u32 },
-  Fixed { value: f64 },
-  Label { label: String, index: usize },
+struct ColumnIter<'a> {
+  column:  &'a Column,
+  current: usize,
 }
 
-impl Tick {
+#[derive(Clone)]
+enum Tick<'a> {
+  Auto { value: f64, precision: u32 },
+  Fixed { value: f64 },
+  Label { label: &'a str, index: usize },
+}
+
+impl Tick<'_> {
   fn position(&self) -> f64 {
     match self {
       Tick::Auto { value, .. } => *value,
@@ -351,13 +357,13 @@ impl Tick {
 }
 
 impl Axis {
-  fn iter_ticks(&self, range: DataRange, nice_ticks: u32) -> TicksIter {
+  fn iter_ticks<'a>(&self, range: DataRange<'a>, nice_ticks: u32) -> TicksIter<'a> {
     match &self.ticks {
       Ticks::Auto => match range {
         // TODO
-        DataRange::Categorical(labels) => TicksIter::Labeled(
-          labels.phys_iter().map(|v| v.to_string()).collect::<Vec<_>>().into_iter().enumerate(),
-        ),
+        DataRange::Categorical(labels) => {
+          TicksIter::Labeled(ColumnIter { column: labels, current: 0 })
+        }
         DataRange::Continuous { range, .. } => TicksIter::Auto(range.nice_ticks(nice_ticks)),
       },
       Ticks::Fixed(count) => match range {
@@ -368,8 +374,8 @@ impl Axis {
   }
 }
 
-impl Iterator for TicksIter {
-  type Item = Tick;
+impl<'a> Iterator for TicksIter<'a> {
+  type Item = Tick<'a>;
 
   fn next(&mut self) -> Option<Self::Item> {
     match self {
@@ -407,7 +413,25 @@ impl Iterator for FixedTicksIter {
   }
 }
 
-impl fmt::Display for Tick {
+impl<'a> Iterator for ColumnIter<'a> {
+  type Item = (usize, &'a str);
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.current >= self.column.len() {
+      None
+    } else {
+      let v = self.column.get(self.current).unwrap();
+      let curr = self.current;
+      self.current += 1;
+      Some(match v {
+        AnyValue::String(v) => (curr, v),
+        _ => panic!("expected a string"),
+      })
+    }
+  }
+}
+
+impl fmt::Display for Tick<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self {
       Tick::Auto { value, precision } => write!(f, "{value:.*}", *precision as usize),
