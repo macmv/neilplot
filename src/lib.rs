@@ -355,7 +355,7 @@ impl Plot<'_> {
 }
 
 enum TicksIter<'a> {
-  Auto(bounds::NiceTicksIter),
+  Auto(bounds::NiceTicksIter, RangeUnit),
   Fixed(FixedTicksIter),
   Labeled(ColumnIter<'a>),
 }
@@ -374,7 +374,7 @@ struct ColumnIter<'a> {
 
 #[derive(Clone)]
 enum Tick<'a> {
-  Auto { value: f64, precision: u32 },
+  Auto { value: f64, precision: u32, unit: RangeUnit },
   Fixed { value: f64 },
   Label { label: AnyValue<'a>, index: usize },
 }
@@ -396,7 +396,9 @@ impl Axis {
         DataRange::Categorical(labels) => {
           TicksIter::Labeled(ColumnIter { column: labels, current: 0 })
         }
-        DataRange::Continuous { range, .. } => TicksIter::Auto(range.nice_ticks(nice_ticks)),
+        DataRange::Continuous { range, unit, .. } => {
+          TicksIter::Auto(range.nice_ticks(nice_ticks), unit)
+        }
       },
       Ticks::Fixed(count) => {
         TicksIter::Fixed(FixedTicksIter::new(self.pretty_range(range), *count))
@@ -426,9 +428,11 @@ impl<'a> Iterator for TicksIter<'a> {
 
   fn next(&mut self) -> Option<Self::Item> {
     match self {
-      TicksIter::Auto(iter) => {
-        iter.next().map(|v| Tick::Auto { value: v, precision: iter.precision() as u32 })
-      }
+      TicksIter::Auto(iter, unit) => iter.next().map(|v| Tick::Auto {
+        value:     v,
+        precision: iter.precision() as u32,
+        unit:      *unit,
+      }),
       TicksIter::Fixed(iter) => iter.next().map(|v| Tick::Fixed { value: v }),
       TicksIter::Labeled(iter) => iter.next().map(|(i, v)| Tick::Label { label: v, index: i }),
     }
@@ -478,8 +482,11 @@ impl<'a> Iterator for ColumnIter<'a> {
 impl fmt::Display for Tick<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self {
-      Tick::Auto { value, precision } => {
+      Tick::Auto { value, precision, unit: RangeUnit::Absolute } => {
         write!(f, "{value:.*}", precision.saturating_sub(3) as usize)
+      }
+      Tick::Auto { value, precision: _, unit: RangeUnit::Duration } => {
+        write!(f, "{:?}", std::time::Duration::from_nanos(*value as u64))
       }
       Tick::Fixed { value } => write!(f, "{value:.2}"),
       Tick::Label { label, .. } => match label {
