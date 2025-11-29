@@ -27,7 +27,7 @@ impl<'a> LineAxes<'a> {
     LineAxes { x, y, options: LineOptions::default() }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds {
+  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
     DataBounds {
       x: Range::new(
         self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),

@@ -36,7 +36,7 @@ impl<'a> ScatterAxes<'a> {
     ScatterAxes { x, y, options: ScatterOptions::default(), hue_column: None, hue_keys: None }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds {
+  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
     DataBounds {
       x: Range::new(
         self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),

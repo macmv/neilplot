@@ -1,4 +1,5 @@
 use kurbo::Affine;
+use polars::prelude::Column;
 
 #[derive(Clone, Copy)]
 pub struct Bounds {
@@ -7,15 +8,15 @@ pub struct Bounds {
 }
 
 #[derive(Clone, Copy)]
-pub struct DataBounds {
-  pub x: DataRange,
-  pub y: DataRange,
+pub struct DataBounds<'a> {
+  pub x: DataRange<'a>,
+  pub y: DataRange<'a>,
 }
 
 #[derive(Clone, Copy)]
-pub enum DataRange {
+pub enum DataRange<'a> {
   Continuous { range: Range, margin_min: bool, margin_max: bool },
-  Categorical(usize),
+  Categorical(&'a Column),
 }
 
 #[derive(Clone, Copy)]
@@ -24,7 +25,7 @@ pub struct Range {
   pub max: f64,
 }
 
-impl From<Range> for DataRange {
+impl From<Range> for DataRange<'_> {
   fn from(range: Range) -> Self {
     DataRange::Continuous { range, margin_min: true, margin_max: true }
   }

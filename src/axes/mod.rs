@@ -19,7 +19,7 @@ pub enum Axes<'a> {
 }
 
 impl Axes<'_> {
-  pub fn data_bounds(&self) -> DataBounds {
+  pub fn data_bounds(&self) -> DataBounds<'_> {
     match self {
       Axes::Scatter(a) => a.data_bounds(),
       Axes::Line(a) => a.data_bounds(),
@@ -73,7 +73,6 @@ impl<'a> Plot<'a> {
   }
 
   pub fn bar_chart(&mut self, labels: &'a Column, values: &'a Column) -> &mut BarChartAxes<'a> {
-    self.x.ticks_labeled(labels.phys_iter().map(|v| v.to_string()).collect());
     self.axes.push(Axes::BarChart(BarChartAxes::new(labels, values)));
     match self.axes.last_mut().unwrap() {
       Axes::BarChart(a) => a,

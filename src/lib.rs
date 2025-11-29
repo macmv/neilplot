@@ -49,7 +49,6 @@ pub enum Ticks {
   #[default]
   Auto,
   Fixed(usize),
-  Labeled(Vec<String>),
 }
 
 impl<'a> Plot<'a> {
@@ -81,50 +80,54 @@ impl<'a> Plot<'a> {
     self.grid.as_mut().unwrap()
   }
 
-  fn bounds(&self) -> Bounds {
-    let mut bounds: Option<Bounds> = None;
+  fn bounds(&self) -> DataBounds<'_> {
+    let mut bounds: Option<DataBounds> = None;
     for axes in &self.axes {
       let bound = axes.data_bounds();
       bounds = Some(match bounds {
-        Some(b) => b.union(self.pretty_bounds(bound)),
-        None => self.pretty_bounds(bound),
+        Some(b) => self.union_bounds(b, bound),
+        None => bound,
       });
     }
 
-    Bounds::new(
-      Range::new(
-        self.x.min.or(bounds.map(|b| b.x.min)).unwrap_or(0.0),
-        self.x.max.or(bounds.map(|b| b.x.max)).unwrap_or(0.0),
-      ),
-      Range::new(
-        self.y.min.or(bounds.map(|b| b.y.min)).unwrap_or(0.0),
-        self.y.max.or(bounds.map(|b| b.y.max)).unwrap_or(0.0),
-      ),
-    )
+    bounds.unwrap()
   }
 
-  fn pretty_bounds(&self, b: DataBounds) -> Bounds {
-    Bounds { x: self.pretty_range(b.x), y: self.pretty_range(b.y) }
+  fn union_bounds(&self, a: DataBounds<'_>, b: DataBounds<'_>) -> DataBounds<'_> {
+    DataBounds { x: self.union_range(a.x, b.x), y: self.union_range(a.y, b.y) }
+  }
+
+  fn union_range(&self, a: DataRange<'_>, b: DataRange<'_>) -> DataRange<'_> {
+    match (a, b) {
+      (
+        DataRange::Continuous { range: range_a, margin_min: min_a, margin_max: max_a },
+        DataRange::Continuous { range: range_b, margin_min: min_b, margin_max: max_b },
+      ) => DataRange::Continuous {
+        range:      range_a.union(range_b),
+        margin_min: min_a || min_b,
+        margin_max: max_a || max_b,
+      },
+      _ => panic!("Cannot union non-continuous ranges"),
+    }
+  }
+
+  fn pretty_bounds(&self, data_bounds: DataBounds<'_>) -> Bounds {
+    Bounds { x: self.pretty_range(data_bounds.x), y: self.pretty_range(data_bounds.y) }
   }
 
   fn pretty_range(&self, r: DataRange) -> Range {
     match r {
       DataRange::Continuous { range, margin_min, margin_max } => {
-        let range = if margin_min {
-          Range::new(range.min - (range.size() * 0.1).abs(), range.max)
-        } else {
-          range
-        };
-
-        let range = if margin_max {
-          Range::new(range.min, range.max + (range.size() * 0.1).abs())
-        } else {
-          range
-        };
-
-        range
+        let mut r = range;
+        if margin_min {
+          r.min -= (r.size() * 0.1).abs();
+        }
+        if margin_max {
+          r.max += (r.size() * 0.1).abs();
+        }
+        r
       }
-      DataRange::Categorical(count) => Range::new(-0.5, count as f64 - 0.5),
+      DataRange::Categorical(labels) => Range::new(-0.5, labels.len() as f64 - 0.5),
     }
   }
 }
@@ -164,11 +167,6 @@ impl Axis {
 
   pub fn ticks_fixed(&mut self, count: usize) -> &mut Self {
     self.ticks = Ticks::Fixed(count);
-    self
-  }
-
-  pub fn ticks_labeled(&mut self, labels: Vec<String>) -> &mut Self {
-    self.ticks = Ticks::Labeled(labels);
     self
   }
 }
@@ -247,12 +245,15 @@ impl Plot<'_> {
     let tick_stroke = Stroke::new(1.0);
 
     let data_bounds = self.bounds();
-    let transform = data_bounds.transform_to(viewport);
+    let transform = self.pretty_bounds(data_bounds).transform_to(viewport);
 
     let ticks = 10;
     let iter = self.y.iter_ticks(data_bounds.y, ticks);
     for (y, vy) in iter
-      .map(|t| (t, (transform * Point::new(0.0, t.position())).y))
+      .map(|t| {
+        let y = (transform * Point::new(0.0, t.position())).y;
+        (t, y)
+      })
       .filter(|(_, vy)| viewport.y.contains(vy))
     {
       render.stroke(
@@ -282,7 +283,10 @@ impl Plot<'_> {
 
     let iter = self.x.iter_ticks(data_bounds.x, ticks);
     for (x, vx) in iter
-      .map(|t| (t, (transform * Point::new(t.position(), 0.0)).x))
+      .map(|t| {
+        let x = (transform * Point::new(t.position(), 0.0)).x;
+        (t, x)
+      })
       .filter(|(_, vx)| viewport.x.contains(vx))
     {
       render.stroke(
@@ -317,10 +321,10 @@ impl Plot<'_> {
 }
 
 #[derive(Clone)]
-enum TicksIter<'a> {
+enum TicksIter {
   Auto(bounds::NiceTicksIter),
   Fixed(FixedTicksIter),
-  Labeled(std::iter::Enumerate<std::slice::Iter<'a, String>>),
+  Labeled(std::iter::Enumerate<std::vec::IntoIter<String>>),
 }
 
 #[derive(Clone)]
@@ -331,14 +335,14 @@ struct FixedTicksIter {
   step:    f64,
 }
 
-#[derive(Clone, Copy)]
-enum Tick<'a> {
+#[derive(Clone)]
+enum Tick {
   Auto { value: f64, precision: u32 },
   Fixed { value: f64 },
-  Label { label: &'a str, index: usize },
+  Label { label: String, index: usize },
 }
 
-impl Tick<'_> {
+impl Tick {
   fn position(&self) -> f64 {
     match self {
       Tick::Auto { value, .. } => *value,
@@ -349,17 +353,25 @@ impl Tick<'_> {
 }
 
 impl Axis {
-  fn iter_ticks(&self, range: Range, nice_ticks: u32) -> TicksIter<'_> {
+  fn iter_ticks(&self, range: DataRange, nice_ticks: u32) -> TicksIter {
     match &self.ticks {
-      Ticks::Auto => TicksIter::Auto(range.nice_ticks(nice_ticks)),
-      Ticks::Fixed(count) => TicksIter::Fixed(FixedTicksIter::new(range, *count)),
-      Ticks::Labeled(labels) => TicksIter::Labeled(labels.iter().enumerate()),
+      Ticks::Auto => match range {
+        // TODO
+        DataRange::Categorical(labels) => TicksIter::Labeled(
+          labels.phys_iter().map(|v| v.to_string()).collect::<Vec<_>>().into_iter().enumerate(),
+        ),
+        DataRange::Continuous { range, .. } => TicksIter::Auto(range.nice_ticks(nice_ticks)),
+      },
+      Ticks::Fixed(count) => match range {
+        DataRange::Continuous { range, .. } => TicksIter::Fixed(FixedTicksIter::new(range, *count)),
+        _ => todo!(),
+      },
     }
   }
 }
 
-impl<'a> Iterator for TicksIter<'a> {
-  type Item = Tick<'a>;
+impl Iterator for TicksIter {
+  type Item = Tick;
 
   fn next(&mut self) -> Option<Self::Item> {
     match self {
@@ -397,7 +409,7 @@ impl Iterator for FixedTicksIter {
   }
 }
 
-impl fmt::Display for Tick<'_> {
+impl fmt::Display for Tick {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self {
       Tick::Auto { value, precision } => write!(f, "{value:.*}", *precision as usize),

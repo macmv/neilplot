@@ -41,7 +41,7 @@ impl<'a> HistogramAxes<'a> {
     HistogramAxes { range: Range::new(0.0, counts.len() as f64), counts: Cow::Borrowed(counts) }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds {
+  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
     DataBounds {
       x: DataRange::Continuous { range: self.range, margin_min: false, margin_max: false },
       y: DataRange::Continuous {

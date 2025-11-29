@@ -17,9 +17,9 @@ impl<'a> BarChartAxes<'a> {
     BarChartAxes { labels, values }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds {
+  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
     DataBounds {
-      x: DataRange::Categorical(self.labels.len()),
+      x: DataRange::Categorical(self.labels),
       y: DataRange::Continuous {
         range:      Range::new(
           0.0,
