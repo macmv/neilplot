@@ -2,7 +2,7 @@ use kurbo::{Affine, BezPath, Point};
 use polars::prelude::*;
 
 use crate::{
-  Range,
+  Range, ResultExt,
   bounds::{DataBounds, DataRange},
   render::Render,
 };
@@ -37,7 +37,9 @@ impl<'a> BarChartAxes<'a> {
 
     for x in 0..self.labels.len() {
       const WIDTH: f64 = 0.3;
-      let value = self.values.get(x).unwrap().try_extract::<f64>().unwrap();
+      let Some(value) = self.values.get(x).and_then(|v| v.try_extract::<f64>()).log_err() else {
+        continue;
+      };
 
       fill.move_to(Point::new(x as f64 - WIDTH, 0.0));
       fill.line_to(Point::new(x as f64 - WIDTH, value));

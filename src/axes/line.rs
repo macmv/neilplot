@@ -2,7 +2,7 @@ use kurbo::{Affine, BezPath, Point, Stroke};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
-use crate::{Range, bounds::DataBounds, render::Render};
+use crate::{Range, ResultExt, bounds::DataBounds, render::Render};
 
 pub struct LineAxes<'a> {
   x:       &'a Column,
@@ -42,19 +42,19 @@ impl<'a> LineAxes<'a> {
     })
   }
 
-  fn iter<'b>(&'b self) -> impl Iterator<Item = Point> + 'b {
+  fn iter<'b>(&'b self) -> impl Iterator<Item = PolarsResult<Point>> + 'b {
     (0..self.x.len()).map(move |i| {
-      let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
-      let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
+      let x = self.x.get(i)?.try_extract::<f64>()?;
+      let y = self.y.get(i)?.try_extract::<f64>()?;
 
-      Point::new(x, y)
+      Ok(Point::new(x, y))
     })
   }
 
   pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {
     let mut shape = BezPath::new();
 
-    for (i, point) in self.iter().map(|p| transform * p).enumerate() {
+    for (i, point) in self.iter().filter_map(|p| p.log_err()).map(|p| transform * p).enumerate() {
       if i == 0 {
         shape.move_to(point);
       } else {

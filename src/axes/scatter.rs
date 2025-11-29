@@ -102,12 +102,12 @@ impl<'a> ScatterAxes<'a> {
     self.options.trendline.as_mut().unwrap()
   }
 
-  fn iter<'b>(&'b self) -> impl Iterator<Item = Point> + 'b {
+  fn iter<'b>(&'b self) -> impl Iterator<Item = PolarsResult<Point>> + 'b {
     (0..self.x.len()).map(move |i| {
-      let x = self.x.get(i).unwrap().try_extract::<f64>().unwrap();
-      let y = self.y.get(i).unwrap().try_extract::<f64>().unwrap();
+      let x = self.x.get(i)?.try_extract::<f64>()?;
+      let y = self.y.get(i)?.try_extract::<f64>()?;
 
-      Point::new(x, y)
+      Ok(Point::new(x, y))
     })
   }
 
@@ -136,7 +136,7 @@ impl<'a> ScatterAxes<'a> {
 
     let shape = self.options.marker.to_path(0.1);
 
-    for (i, point) in self.iter().map(|p| transform * p).enumerate() {
+    for (i, point) in self.iter().filter_map(|p| p.log_err()).map(|p| transform * p).enumerate() {
       let color = if let Some(ref hues) = hues {
         let v = self.hue_column.as_ref().unwrap().get(i).unwrap();
 

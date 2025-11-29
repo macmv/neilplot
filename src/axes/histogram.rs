@@ -5,7 +5,7 @@ use peniko::Color;
 use polars::prelude::*;
 
 use crate::{
-  Range,
+  Range, ResultExt,
   bounds::{DataBounds, DataRange},
   render::Render,
 };
@@ -25,7 +25,7 @@ impl<'a> HistogramAxes<'a> {
     let mut counts = vec![0; bins];
 
     for v in series.iter() {
-      let Ok(v) = v.try_extract::<f64>() else { continue };
+      let Some(v) = v.try_extract::<f64>().log_err() else { continue };
 
       let mut index = ((v - range.min) / range.size() * bins as f64) as usize;
       if index == bins {
@@ -65,7 +65,9 @@ impl<'a> HistogramAxes<'a> {
     let mut prev = None;
     let mut start = None;
     for x in 0..self.counts.len() {
-      let count = self.counts.get(x).unwrap().try_extract::<i64>().unwrap();
+      let Some(count) = self.counts.get(x).and_then(|c| c.try_extract::<i64>()).log_err() else {
+        continue;
+      };
 
       let x = self.range.min + (x as f64 / self.counts.len() as f64) * self.range.size();
 
