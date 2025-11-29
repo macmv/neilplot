@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use kurbo::{Affine, Point, Rect, Shape, Size, Stroke};
-use parley::{Alignment, FontWeight, PositionedLayoutItem, StyleProperty};
+use parley::{Alignment, FontWeight, Layout, PositionedLayoutItem, StyleProperty};
 use peniko::{Brush, BrushRef, Color, Fill};
 use vello::{
   Renderer,
@@ -146,17 +146,26 @@ impl Render {
   }
 
   pub fn draw_text(&mut self, text: DrawText<'_>) {
+    let layout = self.layout_text(&text);
+    self.draw_text_layout(layout, text);
+  }
+
+  pub fn layout_text(&mut self, text: &DrawText<'_>) -> Layout<Brush> {
     let mut builder = self.layout.ranged_builder(&mut self.font, text.text, 1.0, false);
 
     builder.push_default(StyleProperty::FontSize(text.size));
     builder.push_default(StyleProperty::FontWeight(text.weight));
-    builder.push_default(StyleProperty::Brush(text.brush));
+    builder.push_default(StyleProperty::Brush(text.brush.clone()));
 
     let mut layout = builder.build(text.text);
 
     layout.break_all_lines(None);
     layout.align(None, Alignment::Start, Default::default());
 
+    layout
+  }
+
+  pub fn draw_text_layout(&mut self, layout: Layout<Brush>, text: DrawText<'_>) {
     let size = Size::new(f64::from(layout.width()), f64::from(layout.height()));
     let mut rect = Rect::from_origin_size(
       Point {

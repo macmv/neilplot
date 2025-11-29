@@ -7,9 +7,9 @@ use polars::prelude::*;
 use crate::{Marker, Range, ResultExt, bounds::DataBounds, render::Render};
 
 pub struct ScatterAxes<'a> {
-  x:       &'a Column,
-  y:       &'a Column,
-  options: ScatterOptions,
+  x:                  &'a Column,
+  y:                  &'a Column,
+  pub(crate) options: ScatterOptions,
 
   hue_column: Option<&'a Column>,
   hue_keys:   Option<Vec<AnyValue<'a>>>,

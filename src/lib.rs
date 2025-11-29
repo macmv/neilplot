@@ -12,6 +12,7 @@ use crate::{
 
 mod axes;
 mod bounds;
+mod legend;
 mod marker;
 mod render;
 
@@ -340,6 +341,8 @@ impl Plot<'_> {
     for axes in &self.axes {
       axes.draw(render, transform);
     }
+
+    self.draw_legend(render, viewport);
   }
 }
 
