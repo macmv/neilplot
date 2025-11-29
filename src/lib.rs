@@ -38,6 +38,15 @@ pub struct Axis {
   title: Option<String>,
   min:   Option<f64>,
   max:   Option<f64>,
+  ticks: Ticks,
+}
+
+#[derive(Default)]
+pub enum Ticks {
+  #[default]
+  Auto,
+  Fixed(usize),
+  Labeled(Vec<String>),
 }
 
 impl<'a> Plot<'a> {
@@ -114,6 +123,16 @@ impl Axis {
 
   pub fn max(&mut self, max: f64) -> &mut Self {
     self.max = Some(max);
+    self
+  }
+
+  pub fn ticks_fixed(&mut self, count: usize) -> &mut Self {
+    self.ticks = Ticks::Fixed(count);
+    self
+  }
+
+  pub fn ticks_labeled(&mut self, labels: Vec<String>) -> &mut Self {
+    self.ticks = Ticks::Labeled(labels);
     self
   }
 }
@@ -226,9 +245,26 @@ impl Plot<'_> {
       });
     }
 
-    let iter = data_bounds.x.nice_ticks(ticks);
-    let precision = iter.precision();
+    let precision;
+    let iter = match self.x.ticks {
+      Ticks::Auto => {
+        let iter = data_bounds.x.nice_ticks(ticks);
+        precision = iter.precision();
+        iter.collect::<Vec<_>>()
+      }
+      Ticks::Fixed(count) => {
+        let mut ticks = vec![0.0; count];
+        precision = 5;
+        for i in 0..count {
+          ticks[i] =
+            data_bounds.x.min + (i as f64 / (count - 1) as f64) * data_bounds.x.size() as f64;
+        }
+        ticks
+      }
+      _ => todo!(),
+    };
     for (x, vx) in iter
+      .into_iter()
       .map(|v| (v, (transform * Point::new(v, 0.0)).x))
       .filter(|(_, vx)| viewport.x.contains(vx))
     {
