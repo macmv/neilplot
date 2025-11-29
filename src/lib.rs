@@ -343,7 +343,7 @@ struct ColumnIter<'a> {
 enum Tick<'a> {
   Auto { value: f64, precision: u32 },
   Fixed { value: f64 },
-  Label { label: &'a str, index: usize },
+  Label { label: AnyValue<'a>, index: usize },
 }
 
 impl Tick<'_> {
@@ -414,7 +414,7 @@ impl Iterator for FixedTicksIter {
 }
 
 impl<'a> Iterator for ColumnIter<'a> {
-  type Item = (usize, &'a str);
+  type Item = (usize, AnyValue<'a>);
 
   fn next(&mut self) -> Option<Self::Item> {
     if self.current >= self.column.len() {
@@ -423,10 +423,7 @@ impl<'a> Iterator for ColumnIter<'a> {
       let v = self.column.get(self.current).unwrap();
       let curr = self.current;
       self.current += 1;
-      Some(match v {
-        AnyValue::String(v) => (curr, v),
-        _ => panic!("expected a string"),
-      })
+      Some((curr, v))
     }
   }
 }
@@ -436,7 +433,11 @@ impl fmt::Display for Tick<'_> {
     match &self {
       Tick::Auto { value, precision } => write!(f, "{value:.*}", *precision as usize),
       Tick::Fixed { value } => write!(f, "{value:.2}"),
-      Tick::Label { label, .. } => write!(f, "{label}"),
+      Tick::Label { label, .. } => match label {
+        AnyValue::String(s) => write!(f, "{s}"),
+        AnyValue::StringOwned(s) => write!(f, "{s}"),
+        _ => write!(f, "{label}"),
+      },
     }
   }
 }
