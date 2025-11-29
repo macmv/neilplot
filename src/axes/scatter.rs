@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use kurbo::{Affine, Point};
+use kurbo::{Affine, Line, Point, Stroke};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
@@ -145,6 +145,49 @@ impl<'a> ScatterAxes<'a> {
       };
 
       render.fill(&shape, Affine::scale(self.options.size).then_translate(point.to_vec2()), &color);
+    }
+
+    if let Some(trendline) = &self.options.trendline {
+      let df = DataFrame::new(vec![
+        self.x.clone().with_name("x".into()),
+        self.y.clone().with_name("y".into()),
+      ])
+      .unwrap();
+      let stats = df
+        .lazy()
+        .select([
+          cov(col("x"), col("y"), 1).alias("cov_xy"),
+          col("x").var(1).alias("var_x"),
+          col("x").mean().alias("mean_x"),
+          col("y").mean().alias("mean_y"),
+        ])
+        .collect()
+        .unwrap();
+
+      let s_cov = stats.column("cov_xy").unwrap().f64().unwrap().get(0).unwrap();
+      let s_var = stats.column("var_x").unwrap().f64().unwrap().get(0).unwrap();
+      let mean_x = stats.column("mean_x").unwrap().f64().unwrap().get(0).unwrap();
+      let mean_y = stats.column("mean_y").unwrap().f64().unwrap().get(0).unwrap();
+
+      let slope = s_cov / s_var;
+      let intercept = mean_y - slope * mean_x;
+
+      let p0 = Point::new(
+        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap() * slope + intercept,
+      );
+      let p1 = Point::new(
+        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap() * slope + intercept,
+      );
+
+      let line = Line::new(p0, p1);
+      render.stroke(
+        &(transform * line),
+        Affine::IDENTITY,
+        &trendline.color,
+        &Stroke::new(trendline.width),
+      );
     }
   }
 }
