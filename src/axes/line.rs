@@ -1,4 +1,4 @@
-use kurbo::{BezPath, Point, Stroke};
+use kurbo::{Affine, BezPath, Point, Stroke};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
@@ -49,7 +49,7 @@ impl<'a> LineAxes<'a> {
     })
   }
 
-  pub(crate) fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
+  pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {
     let mut shape = BezPath::new();
 
     for (i, point) in self.iter().map(|p| transform * p).enumerate() {
@@ -65,6 +65,6 @@ impl<'a> LineAxes<'a> {
       stroke = stroke.with_dashes(0.0, dash.clone());
     }
 
-    render.stroke(&shape, &self.options.color, &stroke);
+    render.stroke(&shape, Affine::IDENTITY, &self.options.color, &stroke);
   }
 }

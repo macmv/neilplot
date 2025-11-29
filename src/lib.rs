@@ -1,4 +1,4 @@
-use kurbo::{Cap, Line, Point, Stroke};
+use kurbo::{Affine, Cap, Line, Point, Stroke};
 use parley::FontWeight;
 use peniko::{Brush, Color};
 
@@ -174,6 +174,7 @@ impl Plot<'_> {
           Point::new(viewport.x.min, viewport.y.min),
           Point::new(viewport.x.max, viewport.y.min),
         ),
+        Affine::IDENTITY,
         stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
         &stroke.stroke,
       );
@@ -182,6 +183,7 @@ impl Plot<'_> {
           Point::new(viewport.x.min, viewport.y.min),
           Point::new(viewport.x.min, viewport.y.max),
         ),
+        Affine::IDENTITY,
         stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
         &stroke.stroke,
       );
@@ -201,12 +203,14 @@ impl Plot<'_> {
     {
       render.stroke(
         &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.min - 10.0, vy)),
+        Affine::IDENTITY,
         &LINE_COLOR,
         &tick_stroke.clone().with_start_cap(Cap::Butt),
       );
       if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(viewport.x.min, vy), Point::new(viewport.x.max, vy)),
+          Affine::IDENTITY,
           stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
           &stroke.stroke,
         );
@@ -230,12 +234,14 @@ impl Plot<'_> {
     {
       render.stroke(
         &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.min + 10.0)),
+        Affine::IDENTITY,
         &LINE_COLOR,
         &tick_stroke.clone().with_start_cap(Cap::Butt),
       );
       if let Some(stroke) = &self.grid {
         render.stroke(
           &Line::new(Point::new(vx, viewport.y.min), Point::new(vx, viewport.y.max)),
+          Affine::IDENTITY,
           stroke.brush.as_ref().unwrap_or(&LINE_COLOR),
           &stroke.stroke,
         );

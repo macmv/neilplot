@@ -129,10 +129,11 @@ impl Render {
   pub fn stroke<'a>(
     &mut self,
     shape: &impl Shape,
+    transform: Affine,
     brush: impl Into<BrushRef<'a>>,
     stroke: &Stroke,
   ) {
-    self.scene.stroke(stroke, self.transform, brush, None, shape);
+    self.scene.stroke(stroke, self.transform * transform, brush, None, shape);
   }
 
   pub fn fill<'a>(
