@@ -19,7 +19,7 @@ pub enum Axes<'a> {
 }
 
 impl Axes<'_> {
-  pub fn data_bounds(&self) -> DataBounds<'_> {
+  pub fn data_bounds(&self) -> PolarsResult<DataBounds<'_>> {
     match self {
       Axes::Scatter(a) => a.data_bounds(),
       Axes::Line(a) => a.data_bounds(),

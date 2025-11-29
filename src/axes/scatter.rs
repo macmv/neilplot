@@ -4,7 +4,7 @@ use kurbo::{Affine, Line, Point, Stroke};
 use peniko::{Brush, Color};
 use polars::prelude::*;
 
-use crate::{Marker, Range, bounds::DataBounds, render::Render};
+use crate::{Marker, Range, ResultExt, bounds::DataBounds, render::Render};
 
 pub struct ScatterAxes<'a> {
   x:       &'a Column,
@@ -52,19 +52,19 @@ impl<'a> ScatterAxes<'a> {
     ScatterAxes { x, y, options: ScatterOptions::default(), hue_column: None, hue_keys: None }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
-    DataBounds {
+  pub(crate) fn data_bounds(&self) -> PolarsResult<DataBounds<'_>> {
+    Ok(DataBounds {
       x: Range::new(
-        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.x.min_reduce()?.into_value().try_extract::<f64>()?,
+        self.x.max_reduce()?.into_value().try_extract::<f64>()?,
       )
       .into(),
       y: Range::new(
-        self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.y.min_reduce()?.into_value().try_extract::<f64>()?,
+        self.y.max_reduce()?.into_value().try_extract::<f64>()?,
       )
       .into(),
-    }
+    })
   }
 
   pub fn hue_from(&mut self, column: &'a Column) -> &mut Self {
@@ -117,16 +117,19 @@ impl<'a> ScatterAxes<'a> {
     let hues: Option<HashMap<AnyValue, usize>> = if let Some(order) = &self.hue_keys {
       Some(order.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect::<HashMap<_, _>>())
     } else if let Some(hue_column) = &self.hue_column {
-      unique = hue_column.unique_stable().unwrap();
-
-      Some(
-        unique
-          .as_materialized_series()
-          .iter()
-          .enumerate()
-          .map(|(i, v)| (v, i))
-          .collect::<HashMap<_, _>>(),
-      )
+      if let Some(u) = hue_column.unique_stable().log_err() {
+        unique = u;
+        Some(
+          unique
+            .as_materialized_series()
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (v, i))
+            .collect::<HashMap<_, _>>(),
+        )
+      } else {
+        None
+      }
     } else {
       None
     };
@@ -148,46 +151,51 @@ impl<'a> ScatterAxes<'a> {
     }
 
     if let Some(trendline) = &self.options.trendline {
-      let df = DataFrame::new(vec![
-        self.x.clone().with_name("x".into()),
-        self.y.clone().with_name("y".into()),
-      ])
-      .unwrap();
-      let stats = df
-        .lazy()
-        .select([
-          cov(col("x"), col("y"), 1).alias("cov_xy"),
-          col("x").var(1).alias("var_x"),
-          col("x").mean().alias("mean_x"),
-          col("y").mean().alias("mean_y"),
-        ])
-        .collect()
-        .unwrap();
-
-      let s_cov = stats.column("cov_xy").unwrap().f64().unwrap().get(0).unwrap();
-      let s_var = stats.column("var_x").unwrap().f64().unwrap().get(0).unwrap();
-      let mean_x = stats.column("mean_x").unwrap().f64().unwrap().get(0).unwrap();
-      let mean_y = stats.column("mean_y").unwrap().f64().unwrap().get(0).unwrap();
-
-      let slope = s_cov / s_var;
-      let intercept = mean_y - slope * mean_x;
-
-      let p0 = Point::new(
-        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap() * slope + intercept,
-      );
-      let p1 = Point::new(
-        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap() * slope + intercept,
-      );
-
-      let line = Line::new(p0, p1);
-      render.stroke(
-        &(transform * line),
-        Affine::IDENTITY,
-        &trendline.color,
-        &Stroke::new(trendline.width),
-      );
+      trendline.draw(self.x, self.y, render, transform).log_err();
     }
+  }
+}
+
+impl TrendlineOptions {
+  fn draw(
+    &self,
+    x: &Column,
+    y: &Column,
+    render: &mut Render,
+    transform: Affine,
+  ) -> PolarsResult<()> {
+    let df =
+      DataFrame::new(vec![x.clone().with_name("x".into()), y.clone().with_name("y".into())])?;
+    let stats = df
+      .lazy()
+      .select([
+        cov(col("x"), col("y"), 1).alias("cov_xy"),
+        col("x").var(1).alias("var_x"),
+        col("x").mean().alias("mean_x"),
+        col("y").mean().alias("mean_y"),
+      ])
+      .collect()?;
+
+    let s_cov = stats.column("cov_xy")?.f64()?.get(0).unwrap();
+    let s_var = stats.column("var_x")?.f64()?.get(0).unwrap();
+    let mean_x = stats.column("mean_x")?.f64()?.get(0).unwrap();
+    let mean_y = stats.column("mean_y")?.f64()?.get(0).unwrap();
+
+    let slope = s_cov / s_var;
+    let intercept = mean_y - slope * mean_x;
+
+    let p0 = Point::new(
+      x.min_reduce()?.into_value().try_extract::<f64>()?,
+      x.min_reduce()?.into_value().try_extract::<f64>()? * slope + intercept,
+    );
+    let p1 = Point::new(
+      x.max_reduce()?.into_value().try_extract::<f64>()?,
+      x.max_reduce()?.into_value().try_extract::<f64>()? * slope + intercept,
+    );
+
+    let line = Line::new(p0, p1);
+    render.stroke(&(transform * line), Affine::IDENTITY, &self.color, &Stroke::new(self.width));
+
+    Ok(())
   }
 }

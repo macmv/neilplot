@@ -21,6 +21,22 @@ pub use axes::*;
 pub use bounds::{Bounds, Range};
 pub use marker::Marker;
 
+pub(crate) trait ResultExt<T> {
+  fn log_err(self) -> Option<T>;
+}
+
+impl<T> ResultExt<T> for polars::prelude::PolarsResult<T> {
+  fn log_err(self) -> Option<T> {
+    match self {
+      Ok(v) => Some(v),
+      Err(e) => {
+        eprintln!("Polars error: {}", e);
+        None
+      }
+    }
+  }
+}
+
 pub struct Plot<'a> {
   pub x: Axis,
   pub y: Axis,
@@ -90,14 +106,25 @@ impl<'a> Plot<'a> {
   fn bounds(&self) -> DataBounds<'_> {
     let mut bounds: Option<DataBounds> = None;
     for axes in &self.axes {
-      let bound = axes.data_bounds();
+      let Some(bound) = axes.data_bounds().log_err() else { continue };
       bounds = Some(match bounds {
         Some(b) => self.union_bounds(b, bound),
         None => bound,
       });
     }
 
-    bounds.unwrap()
+    bounds.unwrap_or(DataBounds {
+      x: DataRange::Continuous {
+        range:      Range::new(0.0, 1.0),
+        margin_min: false,
+        margin_max: false,
+      },
+      y: DataRange::Continuous {
+        range:      Range::new(0.0, 1.0),
+        margin_min: false,
+        margin_max: false,
+      },
+    })
   }
 
   fn union_bounds(&self, a: DataBounds<'_>, b: DataBounds<'_>) -> DataBounds<'_> {

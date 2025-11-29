@@ -41,19 +41,19 @@ impl<'a> HistogramAxes<'a> {
     HistogramAxes { range: Range::new(0.0, counts.len() as f64), counts: Cow::Borrowed(counts) }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
-    DataBounds {
+  pub(crate) fn data_bounds(&self) -> PolarsResult<DataBounds<'_>> {
+    Ok(DataBounds {
       x: DataRange::Continuous { range: self.range, margin_min: false, margin_max: false },
       y: DataRange::Continuous {
         range:      Range::new(
           0.0,
-          self.counts.max_reduce().unwrap().into_value().try_extract::<i64>().unwrap() as f64,
+          self.counts.max_reduce()?.into_value().try_extract::<i64>()? as f64,
         )
         .into(),
         margin_min: false,
         margin_max: true,
       },
-    }
+    })
   }
 
   pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {

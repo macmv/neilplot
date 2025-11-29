@@ -17,19 +17,19 @@ impl<'a> BarChartAxes<'a> {
     BarChartAxes { labels, values }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
-    DataBounds {
+  pub(crate) fn data_bounds(&self) -> PolarsResult<DataBounds<'_>> {
+    Ok(DataBounds {
       x: DataRange::Categorical(self.labels),
       y: DataRange::Continuous {
         range:      Range::new(
           0.0,
-          self.values.max_reduce().unwrap().into_value().try_extract::<i64>().unwrap() as f64,
+          self.values.max_reduce()?.into_value().try_extract::<i64>()? as f64,
         )
         .into(),
         margin_min: false,
         margin_max: true,
       },
-    }
+    })
   }
 
   pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {

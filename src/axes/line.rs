@@ -27,19 +27,19 @@ impl<'a> LineAxes<'a> {
     LineAxes { x, y, options: LineOptions::default() }
   }
 
-  pub(crate) fn data_bounds(&self) -> DataBounds<'_> {
-    DataBounds {
+  pub(crate) fn data_bounds(&self) -> PolarsResult<DataBounds<'_>> {
+    Ok(DataBounds {
       x: Range::new(
-        self.x.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.x.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.x.min_reduce()?.into_value().try_extract::<f64>()?,
+        self.x.max_reduce()?.into_value().try_extract::<f64>()?,
       )
       .into(),
       y: Range::new(
-        self.y.min_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
-        self.y.max_reduce().unwrap().into_value().try_extract::<f64>().unwrap(),
+        self.y.min_reduce()?.into_value().try_extract::<f64>()?,
+        self.y.max_reduce()?.into_value().try_extract::<f64>()?,
       )
       .into(),
-    }
+    })
   }
 
   fn iter<'b>(&'b self) -> impl Iterator<Item = Point> + 'b {
