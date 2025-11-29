@@ -98,7 +98,7 @@ impl Range {
     }
   }
 
-  pub fn nice_ticks(&self, count: u32) -> TicksIter {
+  pub fn nice_ticks(&self, count: u32) -> NiceTicksIter {
     let step = (self.max - self.min) / f64::from(count);
     let k = step.log10().floor();
     let base = step / 10f64.powf(k);
@@ -116,26 +116,27 @@ impl Range {
     let hi = (self.max / step).ceil() * step;
 
     let precision = (-k as i32 + 4).max(0) as usize;
-    TicksIter::new(lo, hi, step, precision)
+    NiceTicksIter::new(lo, hi, step, precision)
   }
 }
 
-pub struct TicksIter {
+#[derive(Clone)]
+pub struct NiceTicksIter {
   current:   f64,
   step:      f64,
   hi:        f64,
   precision: usize,
 }
 
-impl TicksIter {
+impl NiceTicksIter {
   fn new(lo: f64, hi: f64, step: f64, precision: usize) -> Self {
-    TicksIter { current: lo, step, hi, precision }
+    NiceTicksIter { current: lo, step, hi, precision }
   }
 
   pub fn precision(&self) -> usize { self.precision }
 }
 
-impl Iterator for TicksIter {
+impl Iterator for NiceTicksIter {
   type Item = f64;
   fn next(&mut self) -> Option<Self::Item> {
     if self.current < self.hi + self.step * 0.5 {

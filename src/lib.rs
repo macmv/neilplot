@@ -248,9 +248,9 @@ impl Plot<'_> {
     let transform = data_bounds.transform_to(viewport);
 
     let ticks = 10;
-    let iter = data_bounds.y.nice_ticks(ticks);
-    let precision = iter.precision();
+    let iter = self.y.iter_ticks(data_bounds.y, ticks);
     for (y, vy) in iter
+      .clone()
       .map(|v| (v, (transform * Point::new(0.0, v)).y))
       .filter(|(_, vy)| viewport.y.contains(vy))
     {
@@ -269,7 +269,7 @@ impl Plot<'_> {
         );
       }
       render.draw_text(DrawText {
-        text: &format!("{:.*}", precision.saturating_sub(3), y),
+        text: &iter.format_tick(y),
         size: 12.0,
         position: Point { x: viewport.x.min - 15.0, y: vy },
         brush: TEXT_COLOR,
@@ -279,26 +279,9 @@ impl Plot<'_> {
       });
     }
 
-    let precision;
-    let iter = match self.x.ticks {
-      Ticks::Auto => {
-        let iter = data_bounds.x.nice_ticks(ticks);
-        precision = iter.precision();
-        iter.collect::<Vec<_>>()
-      }
-      Ticks::Fixed(count) => {
-        let mut ticks = vec![0.0; count];
-        precision = 5;
-        for i in 0..count {
-          ticks[i] =
-            data_bounds.x.min + (i as f64 / (count - 1) as f64) * data_bounds.x.size() as f64;
-        }
-        ticks
-      }
-      _ => todo!(),
-    };
+    let iter = self.x.iter_ticks(data_bounds.x, ticks);
     for (x, vx) in iter
-      .into_iter()
+      .clone()
       .map(|v| (v, (transform * Point::new(v, 0.0)).x))
       .filter(|(_, vx)| viewport.x.contains(vx))
     {
@@ -317,7 +300,7 @@ impl Plot<'_> {
         );
       }
       render.draw_text(DrawText {
-        text: &format!("{:.*}", precision.saturating_sub(3), x),
+        text: &iter.format_tick(x),
         size: 12.0,
         position: Point { x: vx, y: viewport.y.min + 15.0 },
         brush: TEXT_COLOR,
@@ -330,5 +313,92 @@ impl Plot<'_> {
     for axes in &self.axes {
       axes.draw(render, transform);
     }
+  }
+}
+
+#[derive(Clone)]
+enum TicksIter {
+  Auto(bounds::NiceTicksIter),
+  Fixed(FixedTicksIter),
+}
+
+#[derive(Clone)]
+struct FixedTicksIter {
+  count:   usize,
+  current: usize,
+  start:   f64,
+  step:    f64,
+}
+
+impl Axis {
+  fn iter_ticks(&self, range: Range, nice_ticks: u32) -> TicksIter {
+    match &self.ticks {
+      Ticks::Auto => TicksIter::Auto(range.nice_ticks(nice_ticks)),
+      Ticks::Fixed(count) => TicksIter::Fixed(FixedTicksIter::new(range, *count)),
+      Ticks::Labeled(_) => todo!(),
+    }
+  }
+}
+
+impl TicksIter {
+  fn format_tick(&self, value: f64) -> String {
+    match &self {
+      TicksIter::Auto(n) => format!("{:.*}", n.precision().saturating_sub(3), value),
+      TicksIter::Fixed(_) => format!("{:.2}", value),
+    }
+  }
+}
+
+impl Iterator for TicksIter {
+  type Item = f64;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    match self {
+      TicksIter::Auto(iter) => iter.next(),
+      TicksIter::Fixed(iter) => iter.next(),
+    }
+  }
+}
+
+impl FixedTicksIter {
+  pub fn new(range: Range, count: usize) -> Self {
+    FixedTicksIter {
+      count,
+      current: 0,
+      start: range.min,
+      step: range.size() / count.saturating_sub(1) as f64,
+    }
+  }
+}
+
+impl Iterator for FixedTicksIter {
+  type Item = f64;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.current >= self.count {
+      None
+    } else {
+      let value = self.start + (self.current as f64) * self.step;
+      self.current += 1;
+      Some(value)
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn fixed_iter_works() {
+    let iter = FixedTicksIter::new(Range::new(0.0, 1.0), 5);
+
+    let results: Vec<f64> = iter.collect();
+    assert_eq!(results, vec![0.0, 0.25, 0.5, 0.75, 1.0]);
+
+    let iter = FixedTicksIter::new(Range::new(0.0, 2.0), 5);
+
+    let results: Vec<f64> = iter.collect();
+    assert_eq!(results, vec![0.0, 0.5, 1.0, 1.5, 2.0]);
   }
 }
