@@ -320,14 +320,12 @@ impl Plot<'_> {
   }
 }
 
-#[derive(Clone)]
 enum TicksIter {
   Auto(bounds::NiceTicksIter),
   Fixed(FixedTicksIter),
   Labeled(std::iter::Enumerate<std::vec::IntoIter<String>>),
 }
 
-#[derive(Clone)]
 struct FixedTicksIter {
   count:   usize,
   current: usize,

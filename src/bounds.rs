@@ -121,7 +121,6 @@ impl Range {
   }
 }
 
-#[derive(Clone)]
 pub struct NiceTicksIter {
   current:   f64,
   step:      f64,
