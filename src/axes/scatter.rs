@@ -16,17 +16,33 @@ pub struct ScatterAxes<'a> {
 }
 
 pub struct ScatterOptions {
-  pub size:   f64,
-  pub marker: Marker,
-  pub color:  Brush,
+  pub size:      f64,
+  pub marker:    Marker,
+  pub color:     Brush,
+  pub trendline: Option<TrendlineOptions>,
+}
+
+pub struct TrendlineOptions {
+  pub kind:  TrendlineKind,
+  pub color: Brush,
+  pub width: f64,
+}
+
+pub enum TrendlineKind {
+  Polynomial(usize),
+}
+
+impl TrendlineKind {
+  pub const LINEAR: Self = TrendlineKind::Polynomial(1);
 }
 
 impl Default for ScatterOptions {
   fn default() -> Self {
     ScatterOptions {
-      size:   12.0,
-      marker: Marker::Circle,
-      color:  Brush::Solid(Color::from_rgb8(117, 158, 208)),
+      size:      12.0,
+      marker:    Marker::Circle,
+      color:     Brush::Solid(Color::from_rgb8(117, 158, 208)),
+      trendline: None,
     }
   }
 }
@@ -75,6 +91,15 @@ impl<'a> ScatterAxes<'a> {
   pub fn marker(&mut self, marker: Marker) -> &mut Self {
     self.options.marker = marker;
     self
+  }
+
+  pub fn trendline(&mut self, kind: TrendlineKind) -> &mut TrendlineOptions {
+    self.options.trendline = Some(TrendlineOptions {
+      kind,
+      color: Brush::Solid(Color::from_rgb8(200, 50, 50)),
+      width: 2.0,
+    });
+    self.options.trendline.as_mut().unwrap()
   }
 
   fn iter<'b>(&'b self) -> impl Iterator<Item = Point> + 'b {

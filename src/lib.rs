@@ -6,7 +6,6 @@ use peniko::{Brush, Color};
 use polars::prelude::{AnyValue, Column};
 
 use crate::{
-  axes::{Axes, ScatterAxes},
   bounds::{DataBounds, DataRange},
   render::{Align, DrawText, Render},
 };
@@ -18,6 +17,7 @@ mod render;
 
 pub mod theme;
 
+pub use axes::*;
 pub use bounds::{Bounds, Range};
 pub use marker::Marker;
 

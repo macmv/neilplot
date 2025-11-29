@@ -6,7 +6,7 @@ mod scatter;
 pub use bar_chart::BarChartAxes;
 pub use histogram::HistogramAxes;
 pub use line::LineAxes;
-pub use scatter::ScatterAxes;
+pub use scatter::{ScatterAxes, TrendlineKind};
 
 use crate::{Plot, bounds::DataBounds};
 use polars::prelude::*;
@@ -28,7 +28,7 @@ impl Axes<'_> {
     }
   }
 
-  pub fn draw(&self, render: &mut crate::render::Render, transform: vello::kurbo::Affine) {
+  pub(crate) fn draw(&self, render: &mut crate::render::Render, transform: vello::kurbo::Affine) {
     match self {
       Axes::Scatter(a) => a.draw(render, transform),
       Axes::Line(a) => a.draw(render, transform),
