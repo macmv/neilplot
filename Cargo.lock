@@ -2177,6 +2177,7 @@ dependencies = [
  "peniko",
  "polars",
  "pollster",
+ "pulldown-latex",
  "vello",
  "winit",
 ]
@@ -3421,6 +3422,15 @@ checksum = "d11f2fedc3b7dafdc2851bc52f277377c5473d378859be234bc7ebb593144d01"
 dependencies = [
  "ar_archive_writer",
  "cc",
+]
+
+[[package]]
+name = "pulldown-latex"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b8bc0583825170e3f560701d966dc2f0e3a16946da371e37d30d3ad7207fb7e"
+dependencies = [
+ "bumpalo",
 ]
 
 [[package]]

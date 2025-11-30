@@ -517,4 +517,23 @@ mod tests {
     let results: Vec<f64> = iter.collect();
     assert_eq!(results, vec![0.0, 0.5, 1.0, 1.5, 2.0]);
   }
+
+  #[test]
+  fn foo() {
+    let src = "x^{2+3}_4";
+
+    let mut storage = pulldown_latex::Storage::new();
+    let mut out = String::new();
+    pulldown_latex::push_mathml(
+      &mut out,
+      pulldown_latex::Parser::new(src, &mut storage),
+      Default::default(),
+    );
+    println!("{out}");
+    for ev in pulldown_latex::Parser::new(src, &mut storage) {
+      println!("{ev:?}");
+    }
+
+    panic!();
+  }
 }
