@@ -63,7 +63,7 @@ pub struct Axis {
   ticks:  Ticks,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum Scale {
   #[default]
   Linear,
@@ -174,9 +174,14 @@ impl<'a> Plot<'a> {
   }
 
   fn viewport_transform(&self, data_bounds: DataBounds<'_>, viewport: Bounds) -> ViewportTransform {
-    let affine = self.pretty_bounds(data_bounds).transform_to(viewport);
+    let pretty = self.pretty_bounds(data_bounds);
+    let from = Bounds::new(
+      pretty.x.map(|v| self.x.scale.scale_value(v)),
+      pretty.y.map(|v| self.y.scale.scale_value(v)),
+    );
+    let affine = from.transform_to(viewport);
 
-    ViewportTransform { affine }
+    ViewportTransform { affine, x: self.x.scale, y: self.y.scale }
   }
 }
 
@@ -438,10 +443,20 @@ impl Axis {
       DataRange::Continuous { range, margin_min, margin_max, .. } => {
         let mut r = range;
         if margin_min {
-          r.min -= (r.size() * self.margin).abs();
+          match self.scale {
+            Scale::Linear => r.min -= (r.size() * self.margin).abs(),
+            Scale::Logarithmic => {
+              r.min -= 10_f64.powf(((r.max.log10() - r.min.log10()) * self.margin).abs())
+            }
+          }
         }
         if margin_max {
-          r.max += (r.size() * self.margin).abs();
+          match self.scale {
+            Scale::Linear => r.max += (r.size() * self.margin).abs(),
+            Scale::Logarithmic => {
+              r.max += 10_f64.powf(((r.max.log10() - r.min.log10()) * self.margin).abs())
+            }
+          }
         }
         Range::new(self.min.unwrap_or(r.min), self.max.unwrap_or(r.max))
       }

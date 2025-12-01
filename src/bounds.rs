@@ -3,7 +3,9 @@ use std::ops::Mul;
 use kurbo::{Affine, BezPath, Line, PathEl, Point};
 use polars::{error::PolarsResult, prelude::Column};
 
-#[derive(Clone, Copy)]
+use crate::Scale;
+
+#[derive(Debug, Clone, Copy)]
 pub struct Bounds {
   pub x: Range,
   pub y: Range,
@@ -17,6 +19,8 @@ pub struct DataBounds<'a> {
 
 pub(crate) struct ViewportTransform {
   pub affine: Affine,
+  pub x:      Scale,
+  pub y:      Scale,
 }
 
 #[derive(Clone, Copy)]
@@ -32,7 +36,7 @@ pub enum RangeUnit {
   Date,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Range {
   pub min: f64,
   pub max: f64,
@@ -132,6 +136,10 @@ impl Range {
     let precision = (-k as i32 + 4).max(0) as usize;
     NiceTicksIter::new(lo, hi, step, precision)
   }
+
+  pub(crate) fn map(&self, f: impl Fn(f64) -> f64) -> Range {
+    Range { min: f(self.min), max: f(self.max) }
+  }
 }
 
 impl DataRange<'_> {
@@ -152,16 +160,27 @@ impl DataRange<'_> {
   }
 }
 
-impl Mul<Point> for ViewportTransform {
-  type Output = Point;
-
-  fn mul(self, rhs: Point) -> Self::Output { self.affine * rhs }
+impl Scale {
+  pub(crate) fn scale_value(&self, value: f64) -> f64 {
+    match self {
+      Scale::Linear => value,
+      Scale::Logarithmic => {
+        if value <= 0.0 {
+          0.0
+        } else {
+          value.log10()
+        }
+      }
+    }
+  }
 }
 
 impl Mul<Point> for &ViewportTransform {
   type Output = Point;
 
-  fn mul(self, rhs: Point) -> Self::Output { self.affine * rhs }
+  fn mul(self, rhs: Point) -> Self::Output {
+    self.affine * Point::new(self.x.scale_value(rhs.x), self.y.scale_value(rhs.y))
+  }
 }
 
 impl Mul<Line> for &ViewportTransform {
