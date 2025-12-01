@@ -387,7 +387,7 @@ impl Plot<'_> {
 }
 
 enum TicksIter<'a> {
-  Auto(bounds::NiceTicksIter, RangeUnit),
+  Auto { iter: bounds::NiceTicksIter, scale: Scale, unit: RangeUnit },
   Fixed(FixedTicksIter),
   Labeled(ColumnIter<'a>),
 }
@@ -429,7 +429,11 @@ impl Axis {
           TicksIter::Labeled(ColumnIter { column: labels, current: 0 })
         }
         DataRange::Continuous { range, unit, .. } => {
-          TicksIter::Auto(range.nice_ticks(nice_ticks), unit)
+          let range = match self.scale {
+            Scale::Linear => range,
+            Scale::Logarithmic => Range::new(range.min.log10(), range.max.log10()),
+          };
+          TicksIter::Auto { iter: range.nice_ticks(nice_ticks), scale: self.scale, unit }
         }
       },
       Ticks::Fixed(count) => {
@@ -470,8 +474,11 @@ impl<'a> Iterator for TicksIter<'a> {
 
   fn next(&mut self) -> Option<Self::Item> {
     match self {
-      TicksIter::Auto(iter, unit) => iter.next().map(|v| Tick::Auto {
-        value:     v,
+      TicksIter::Auto { iter, scale, unit } => iter.next().map(|v| Tick::Auto {
+        value:     match scale {
+          Scale::Linear => v,
+          Scale::Logarithmic => 10f64.powf(v),
+        },
         precision: iter.precision() as u32,
         unit:      *unit,
       }),
