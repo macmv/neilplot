@@ -1,4 +1,6 @@
-use kurbo::Affine;
+use std::ops::Mul;
+
+use kurbo::{Affine, BezPath, Line, PathEl, Point};
 use polars::{error::PolarsResult, prelude::Column};
 
 #[derive(Clone, Copy)]
@@ -11,6 +13,10 @@ pub struct Bounds {
 pub struct DataBounds<'a> {
   pub x: DataRange<'a>,
   pub y: DataRange<'a>,
+}
+
+pub(crate) struct ViewportTransform {
+  pub affine: Affine,
 }
 
 #[derive(Clone, Copy)]
@@ -143,6 +149,46 @@ impl DataRange<'_> {
       margin_min: true,
       margin_max: true,
     })
+  }
+}
+
+impl Mul<Point> for ViewportTransform {
+  type Output = Point;
+
+  fn mul(self, rhs: Point) -> Self::Output { self.affine * rhs }
+}
+
+impl Mul<Point> for &ViewportTransform {
+  type Output = Point;
+
+  fn mul(self, rhs: Point) -> Self::Output { self.affine * rhs }
+}
+
+impl Mul<Line> for &ViewportTransform {
+  type Output = Line;
+
+  fn mul(self, rhs: Line) -> Self::Output { Line { p0: self * rhs.p0, p1: self * rhs.p1 } }
+}
+
+impl Mul<BezPath> for &ViewportTransform {
+  type Output = BezPath;
+
+  fn mul(self, rhs: BezPath) -> Self::Output {
+    BezPath::from_vec(rhs.iter().map(|el| self * el).collect())
+  }
+}
+
+impl Mul<PathEl> for &ViewportTransform {
+  type Output = PathEl;
+
+  fn mul(self, rhs: PathEl) -> Self::Output {
+    match rhs {
+      PathEl::MoveTo(p) => PathEl::MoveTo(self * p),
+      PathEl::LineTo(p) => PathEl::LineTo(self * p),
+      PathEl::QuadTo(p1, p2) => PathEl::QuadTo(self * p1, self * p2),
+      PathEl::CurveTo(p1, p2, p3) => PathEl::CurveTo(self * p1, self * p2, self * p3),
+      PathEl::ClosePath => PathEl::ClosePath,
+    }
   }
 }
 

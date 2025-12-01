@@ -8,7 +8,10 @@ pub use histogram::HistogramAxes;
 pub use line::{LineAxes, LineOptions};
 pub use scatter::{ScatterAxes, TrendlineKind};
 
-use crate::{Plot, bounds::DataBounds};
+use crate::{
+  Plot,
+  bounds::{DataBounds, ViewportTransform},
+};
 use polars::prelude::*;
 
 pub enum Axes<'a> {
@@ -28,7 +31,7 @@ impl Axes<'_> {
     }
   }
 
-  pub(crate) fn draw(&self, render: &mut crate::render::Render, transform: vello::kurbo::Affine) {
+  pub(crate) fn draw(&self, render: &mut crate::render::Render, transform: &ViewportTransform) {
     match self {
       Axes::Scatter(a) => a.draw(render, transform),
       Axes::Line(a) => a.draw(render, transform),

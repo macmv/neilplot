@@ -6,7 +6,7 @@ use peniko::{Brush, Color};
 use polars::prelude::{AnyValue, Column};
 
 use crate::{
-  bounds::{DataBounds, DataRange, RangeUnit},
+  bounds::{DataBounds, DataRange, RangeUnit, ViewportTransform},
   render::{Align, DrawText, Render},
 };
 
@@ -172,6 +172,12 @@ impl<'a> Plot<'a> {
   fn pretty_bounds(&self, data_bounds: DataBounds<'_>) -> Bounds {
     Bounds { x: self.x.pretty_range(data_bounds.x), y: self.y.pretty_range(data_bounds.y) }
   }
+
+  fn viewport_transform(&self, data_bounds: DataBounds<'_>, viewport: Bounds) -> ViewportTransform {
+    let affine = self.pretty_bounds(data_bounds).transform_to(viewport);
+
+    ViewportTransform { affine }
+  }
 }
 
 impl StrokeStyle {
@@ -297,7 +303,8 @@ impl Plot<'_> {
     let tick_stroke = Stroke::new(1.0);
 
     let data_bounds = self.bounds();
-    let transform = self.pretty_bounds(data_bounds).transform_to(viewport);
+    let transform = self.viewport_transform(data_bounds, viewport);
+    let transform = &transform;
 
     let ticks = 10;
     let iter = self.y.iter_ticks(data_bounds.y, ticks);

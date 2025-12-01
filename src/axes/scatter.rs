@@ -6,7 +6,7 @@ use polars::prelude::*;
 
 use crate::{
   LineOptions, Marker, ResultExt,
-  bounds::{DataBounds, DataRange},
+  bounds::{DataBounds, DataRange, ViewportTransform},
   render::Render,
 };
 
@@ -120,7 +120,7 @@ impl<'a> ScatterAxes<'a> {
     }
   }
 
-  pub(crate) fn draw(&self, render: &mut Render, transform: vello::kurbo::Affine) {
+  pub(crate) fn draw(&self, render: &mut Render, transform: &ViewportTransform) {
     let hues = self.hues();
     let hues = hues
       .as_ref()
@@ -155,7 +155,7 @@ impl TrendlineOptions {
     x: &Column,
     y: &Column,
     render: &mut Render,
-    transform: Affine,
+    transform: &ViewportTransform,
   ) -> PolarsResult<()> {
     let df =
       DataFrame::new(vec![x.clone().with_name("x".into()), y.clone().with_name("y".into())])?;

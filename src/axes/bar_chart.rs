@@ -3,7 +3,7 @@ use polars::prelude::*;
 
 use crate::{
   Range, ResultExt,
-  bounds::{DataBounds, DataRange, RangeUnit},
+  bounds::{DataBounds, DataRange, RangeUnit, ViewportTransform},
   render::Render,
 };
 
@@ -33,7 +33,7 @@ impl<'a> BarChartAxes<'a> {
     })
   }
 
-  pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {
+  pub(crate) fn draw(&self, render: &mut Render, transform: &ViewportTransform) {
     let mut fill = BezPath::new();
 
     for x in 0..self.labels.len() {
@@ -49,6 +49,6 @@ impl<'a> BarChartAxes<'a> {
       fill.line_to(Point::new(x as f64 - WIDTH, 0.0));
     }
 
-    render.fill(&fill, transform, crate::theme::ROCKET.sample(0.0));
+    render.fill(&(transform * fill), Affine::IDENTITY, crate::theme::ROCKET.sample(0.0));
   }
 }

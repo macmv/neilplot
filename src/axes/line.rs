@@ -4,7 +4,7 @@ use polars::prelude::*;
 
 use crate::{
   ResultExt,
-  bounds::{DataBounds, DataRange},
+  bounds::{DataBounds, DataRange, ViewportTransform},
   render::Render,
 };
 
@@ -45,7 +45,7 @@ impl<'a> LineAxes<'a> {
     })
   }
 
-  pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {
+  pub(crate) fn draw(&self, render: &mut Render, transform: &ViewportTransform) {
     let mut shape = BezPath::new();
 
     for (i, point) in self.iter().filter_map(|p| p.log_err()).map(|p| transform * p).enumerate() {

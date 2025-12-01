@@ -6,7 +6,7 @@ use polars::prelude::*;
 
 use crate::{
   Range, ResultExt,
-  bounds::{DataBounds, DataRange, RangeUnit},
+  bounds::{DataBounds, DataRange, RangeUnit, ViewportTransform},
   render::Render,
 };
 
@@ -62,7 +62,7 @@ impl<'a> HistogramAxes<'a> {
     })
   }
 
-  pub(crate) fn draw(&self, render: &mut Render, transform: Affine) {
+  pub(crate) fn draw(&self, render: &mut Render, transform: &ViewportTransform) {
     let mut outline = BezPath::new();
     let mut fill = BezPath::new();
     outline.move_to(Point::new(self.range.min, 0.0));
@@ -113,7 +113,7 @@ impl<'a> HistogramAxes<'a> {
       outline.line_to(Point::new(start_x, 0.0));
     }
 
-    render.fill(&fill, transform, crate::theme::ROCKET.sample(0.0));
+    render.fill(&(transform * fill), Affine::IDENTITY, crate::theme::ROCKET.sample(0.0));
     render.stroke(&(transform * outline), Affine::IDENTITY, Color::BLACK, &Stroke::new(2.0));
   }
 }
