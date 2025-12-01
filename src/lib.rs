@@ -56,10 +56,18 @@ pub struct StrokeStyle {
 
 pub struct Axis {
   title:  Option<String>,
+  scale:  Scale,
   min:    Option<f64>,
   max:    Option<f64>,
   margin: f64,
   ticks:  Ticks,
+}
+
+#[derive(Default)]
+pub enum Scale {
+  #[default]
+  Linear,
+  Logarithmic,
 }
 
 #[derive(Default)]
@@ -71,7 +79,14 @@ pub enum Ticks {
 
 impl Default for Axis {
   fn default() -> Self {
-    Axis { title: None, min: None, max: None, margin: 0.1, ticks: Ticks::Auto }
+    Axis {
+      title:  None,
+      scale:  Scale::Linear,
+      min:    None,
+      max:    None,
+      margin: 0.1,
+      ticks:  Ticks::Auto,
+    }
   }
 }
 
@@ -199,6 +214,11 @@ impl Axis {
 
   pub fn ticks_fixed(&mut self, count: usize) -> &mut Self {
     self.ticks = Ticks::Fixed(count);
+    self
+  }
+
+  pub fn log_scale(&mut self) -> &mut Self {
+    self.scale = Scale::Logarithmic;
     self
   }
 }
