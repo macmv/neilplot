@@ -416,7 +416,7 @@ impl Axis {
         if margin_max {
           r.max += (r.size() * self.margin).abs();
         }
-        r
+        Range::new(self.min.unwrap_or(r.min), self.max.unwrap_or(r.max))
       }
       DataRange::Categorical(labels) => Range::new(-0.5, labels.len() as f64 - 0.5),
     }
